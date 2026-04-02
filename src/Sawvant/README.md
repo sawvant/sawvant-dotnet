@@ -172,7 +172,7 @@ Authentication schemes defined for the API:
 - packageCompany: OpenAPI
 - packageCopyright: No Copyright
 - packageDescription: A library generated from a OpenAPI doc
-- packageGuid: {94966D05-E928-4562-B10F-08A1964D3057}
+- packageGuid: {2BBE419B-1212-42AC-A6A5-0BFB8F2CD5DF}
 - packageName: Sawvant
 - packageTags: 
 - packageTitle: OpenAPI Library
