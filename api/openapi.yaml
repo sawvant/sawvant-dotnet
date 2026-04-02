@@ -1,0 +1,1087 @@
+openapi: 3.1.0
+info:
+  contact:
+    name: Sawvant
+    url: https://sawvant.com
+  description: |
+    REST API for 2D guillotine sheet cutting optimization.
+    Submit optimization jobs, poll for status, or stream progress via SSE.
+  title: Sawvant Cutting Optimization API
+  version: 1.0.0
+servers:
+- description: Production
+  url: https://api.sawvant.com
+security:
+- apiKey: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+          description: Service is healthy
+      security: []
+      summary: Health check
+      tags:
+      - System
+  /v1/tiers:
+    get:
+      description: |
+        Returns all available subscription tiers with their rate limits, pricing,
+        and feature gates. This is the single source of truth for tier configuration.
+      operationId: listTiers
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/TierDefinition'
+                type: array
+          description: List of tier definitions
+      security: []
+      summary: List available subscription tiers
+      tags:
+      - System
+  /v1/optimize:
+    post:
+      description: |
+        Validates the request synchronously, then enqueues the job for async processing.
+        Returns 202 with a job ID and URLs for polling/streaming.
+      operationId: createOptimization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizeRequest'
+        required: true
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OptimizeAccepted'
+          description: Job accepted and queued
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Invalid request (malformed JSON, missing fields, validation\
+            \ error)"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Missing or invalid API key
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: API key revoked
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Request is valid but infeasible (e.g. part larger than all
+            sheets)
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+          description: Rate limit exceeded
+      summary: Submit a cutting optimization job
+      tags:
+      - Optimization
+  /v1/jobs/{id}:
+    get:
+      description: "Returns the current state of a job including progress, result,\
+        \ and errors."
+      operationId: getJob
+      parameters:
+      - $ref: '#/components/parameters/JobID'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobResponse'
+          description: Job found
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Invalid job ID format
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Missing or invalid API key
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Job not found
+      summary: Get job status
+      tags:
+      - Jobs
+  /v1/jobs/{id}/stream:
+    get:
+      description: |
+        Server-Sent Events stream that emits `progress`, `completed`, or `failed` events.
+        The stream closes automatically when the job reaches a terminal state.
+
+        A `: heartbeat` comment is sent every 30 seconds to keep the connection alive
+        through proxies and load balancers. SSE clients ignore these automatically.
+      operationId: streamJob
+      parameters:
+      - $ref: '#/components/parameters/JobID'
+      responses:
+        "200":
+          content:
+            text/event-stream:
+              schema:
+                description: |
+                  SSE events with `event:` and `data:` fields.
+                  Event types: `progress`, `completed`, `failed`, `error`.
+                  Data is a JSON-encoded JobResponse.
+                type: string
+          description: SSE event stream
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Invalid job ID format
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Missing or invalid API key
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Job not found
+      summary: Stream job progress via SSE
+      tags:
+      - Jobs
+components:
+  parameters:
+    JobID:
+      description: Job UUID
+      explode: false
+      in: path
+      name: id
+      required: true
+      schema:
+        format: uuid
+        type: string
+      style: simple
+  schemas:
+    TierDefinition:
+      example:
+        features:
+          sse: true
+          thorough: true
+          metrics: true
+          cost: true
+        period: month
+        price_eur_cents: 3900
+        rate_limit_fast: 100
+        name: pro
+        rate_limit_thorough: 20
+        display_name: Pro
+      properties:
+        name:
+          example: pro
+          type: string
+        display_name:
+          example: Pro
+          type: string
+        price_eur_cents:
+          example: 3900
+          type: integer
+        period:
+          example: month
+          type: string
+        rate_limit_fast:
+          description: Maximum fast strategy requests per 24h sliding window
+          example: 100
+          type: integer
+        rate_limit_thorough:
+          description: Maximum thorough strategy requests per 24h sliding window
+          example: 20
+          type: integer
+        features:
+          additionalProperties:
+            type: boolean
+          description: Feature gates enabled for this tier
+          example:
+            sse: true
+            thorough: true
+            metrics: true
+            cost: true
+      required:
+      - display_name
+      - features
+      - name
+      - price_eur_cents
+      - rate_limit_fast
+      - rate_limit_thorough
+    HealthResponse:
+      example:
+        status: ok
+      properties:
+        status:
+          example: ok
+          type: string
+      required:
+      - status
+    Error:
+      example:
+        error: error
+      properties:
+        error:
+          type: string
+      required:
+      - error
+    RateLimitError:
+      example:
+        limit: 0
+        error: rate limit exceeded
+        strategy: fast
+        remaining: 6
+      properties:
+        error:
+          example: rate limit exceeded
+          type: string
+        limit:
+          description: Request limit for this tier and strategy (24h sliding window)
+          type: integer
+        remaining:
+          description: Remaining requests in the current window
+          type: integer
+        strategy:
+          description: Which strategy quota was exceeded
+          enum:
+          - fast
+          - thorough
+          type: string
+      required:
+      - error
+      - limit
+      - remaining
+      - strategy
+    OptimizeRequest:
+      example:
+        cost_tariffs:
+          cost_per_rotation: 5.025004791520295
+          setup_cost: 1.1730742509559433
+          cost_per_meter: 4.965218492984954
+          cost_per_cycle: 9.369310271410669
+          cost_per_stack: 9.965781217890562
+        sheets:
+        - article_number: article_number
+          quantity: 0
+          trim_margins:
+            top: 4.145608029883936
+            left: 1.2315135367772556
+            bottom: 7.386281948385884
+            right: 1.0246457001441578
+          is_offcut: false
+          length: 9.301444243932576
+          width: 3.616076749251911
+          id: id
+          grain: null
+        - article_number: article_number
+          quantity: 0
+          trim_margins:
+            top: 4.145608029883936
+            left: 1.2315135367772556
+            bottom: 7.386281948385884
+            right: 1.0246457001441578
+          is_offcut: false
+          length: 9.301444243932576
+          width: 3.616076749251911
+          id: id
+          grain: null
+        - article_number: article_number
+          quantity: 0
+          trim_margins:
+            top: 4.145608029883936
+            left: 1.2315135367772556
+            bottom: 7.386281948385884
+            right: 1.0246457001441578
+          is_offcut: false
+          length: 9.301444243932576
+          width: 3.616076749251911
+          id: id
+          grain: null
+        - article_number: article_number
+          quantity: 0
+          trim_margins:
+            top: 4.145608029883936
+            left: 1.2315135367772556
+            bottom: 7.386281948385884
+            right: 1.0246457001441578
+          is_offcut: false
+          length: 9.301444243932576
+          width: 3.616076749251911
+          id: id
+          grain: null
+        - article_number: article_number
+          quantity: 0
+          trim_margins:
+            top: 4.145608029883936
+            left: 1.2315135367772556
+            bottom: 7.386281948385884
+            right: 1.0246457001441578
+          is_offcut: false
+          length: 9.301444243932576
+          width: 3.616076749251911
+          id: id
+          grain: null
+        machine:
+          max_levels: 2
+          blade_thickness: 1.4894159098541704
+          cut_direction: default
+          max_stack_height: 7.457744773683766
+        parts:
+        - quantity: 1
+          edge_banding:
+            top: 5.962133916683182
+            left: 2.3021358869347655
+            bottom: 5.637376656633329
+            right: 7.061401241503109
+          length: 0.8008281904610115
+          width: 6.027456183070403
+          id: id
+          grain: none
+        - quantity: 1
+          edge_banding:
+            top: 5.962133916683182
+            left: 2.3021358869347655
+            bottom: 5.637376656633329
+            right: 7.061401241503109
+          length: 0.8008281904610115
+          width: 6.027456183070403
+          id: id
+          grain: none
+        - quantity: 1
+          edge_banding:
+            top: 5.962133916683182
+            left: 2.3021358869347655
+            bottom: 5.637376656633329
+            right: 7.061401241503109
+          length: 0.8008281904610115
+          width: 6.027456183070403
+          id: id
+          grain: none
+        - quantity: 1
+          edge_banding:
+            top: 5.962133916683182
+            left: 2.3021358869347655
+            bottom: 5.637376656633329
+            right: 7.061401241503109
+          length: 0.8008281904610115
+          width: 6.027456183070403
+          id: id
+          grain: none
+        - quantity: 1
+          edge_banding:
+            top: 5.962133916683182
+            left: 2.3021358869347655
+            bottom: 5.637376656633329
+            right: 7.061401241503109
+          length: 0.8008281904610115
+          width: 6.027456183070403
+          id: id
+          grain: none
+        strategy: fast
+      properties:
+        parts:
+          items:
+            $ref: '#/components/schemas/Part'
+          maxItems: 5000
+          minItems: 1
+          type: array
+        sheets:
+          items:
+            $ref: '#/components/schemas/Sheet'
+          maxItems: 100
+          minItems: 1
+          type: array
+        machine:
+          $ref: '#/components/schemas/Machine'
+        strategy:
+          default: fast
+          description: |
+            Solve strategy. "fast" runs all greedy solvers concurrently.
+            "thorough" adds Gilmore-Gomory column generation for optimal patterns.
+            Each strategy has its own rate limit quota.
+          enum:
+          - fast
+          - thorough
+          type: string
+        cost_tariffs:
+          $ref: '#/components/schemas/CostTariffs'
+      required:
+      - machine
+      - parts
+      - sheets
+    Part:
+      example:
+        quantity: 1
+        edge_banding:
+          top: 5.962133916683182
+          left: 2.3021358869347655
+          bottom: 5.637376656633329
+          right: 7.061401241503109
+        length: 0.8008281904610115
+        width: 6.027456183070403
+        id: id
+        grain: none
+      properties:
+        id:
+          type: string
+        length:
+          description: Length in mm
+          format: double
+          type: number
+        width:
+          description: Width in mm
+          format: double
+          type: number
+        quantity:
+          minimum: 1
+          type: integer
+        grain:
+          $ref: '#/components/schemas/GrainDirection'
+        edge_banding:
+          $ref: '#/components/schemas/EdgeCorrection'
+      required:
+      - grain
+      - id
+      - length
+      - quantity
+      - width
+    Sheet:
+      example:
+        article_number: article_number
+        quantity: 0
+        trim_margins:
+          top: 4.145608029883936
+          left: 1.2315135367772556
+          bottom: 7.386281948385884
+          right: 1.0246457001441578
+        is_offcut: false
+        length: 9.301444243932576
+        width: 3.616076749251911
+        id: id
+        grain: null
+      properties:
+        id:
+          type: string
+        length:
+          description: Length in mm
+          format: double
+          type: number
+        width:
+          description: Width in mm
+          format: double
+          type: number
+        quantity:
+          description: 0 = unlimited
+          minimum: 0
+          type: integer
+        grain:
+          $ref: '#/components/schemas/GrainDirection'
+        is_offcut:
+          default: false
+          description: Offcut sheets are prioritized by the solver
+          type: boolean
+        trim_margins:
+          $ref: '#/components/schemas/Margins'
+        article_number:
+          description: Optional article/SKU reference for this sheet type
+          type: string
+      required:
+      - grain
+      - id
+      - length
+      - quantity
+      - width
+    Machine:
+      example:
+        max_levels: 2
+        blade_thickness: 1.4894159098541704
+        cut_direction: default
+        max_stack_height: 7.457744773683766
+      properties:
+        blade_thickness:
+          description: Kerf width in mm
+          format: double
+          type: number
+        max_levels:
+          description: Cut pattern complexity (1-3)
+          maximum: 3
+          minimum: 1
+          type: integer
+        max_stack_height:
+          description: Maximum stack height in mm for batch cutting
+          format: double
+          type: number
+        cut_direction:
+          $ref: '#/components/schemas/CutDirection'
+      required:
+      - blade_thickness
+      - cut_direction
+      - max_levels
+    GrainDirection:
+      enum:
+      - none
+      - length
+      - width
+      - free_same
+      type: string
+    CutDirection:
+      enum:
+      - default
+      - rip
+      - cross
+      type: string
+    EdgeCorrection:
+      example:
+        top: 5.962133916683182
+        left: 2.3021358869347655
+        bottom: 5.637376656633329
+        right: 7.061401241503109
+      properties:
+        top:
+          default: 0
+          description: mm added for edge banding
+          format: double
+          type: number
+        bottom:
+          default: 0
+          format: double
+          type: number
+        left:
+          default: 0
+          format: double
+          type: number
+        right:
+          default: 0
+          format: double
+          type: number
+    Margins:
+      example:
+        top: 4.145608029883936
+        left: 1.2315135367772556
+        bottom: 7.386281948385884
+        right: 1.0246457001441578
+      properties:
+        top:
+          default: 0
+          description: mm trim per side
+          format: double
+          type: number
+        bottom:
+          default: 0
+          format: double
+          type: number
+        left:
+          default: 0
+          format: double
+          type: number
+        right:
+          default: 0
+          format: double
+          type: number
+    CostTariffs:
+      example:
+        cost_per_rotation: 5.025004791520295
+        setup_cost: 1.1730742509559433
+        cost_per_meter: 4.965218492984954
+        cost_per_cycle: 9.369310271410669
+        cost_per_stack: 9.965781217890562
+      properties:
+        setup_cost:
+          description: Fixed cost per job
+          format: double
+          type: number
+        cost_per_meter:
+          description: Cost per meter of cut length
+          format: double
+          type: number
+        cost_per_rotation:
+          format: double
+          type: number
+        cost_per_stack:
+          format: double
+          type: number
+        cost_per_cycle:
+          format: double
+          type: number
+    OptimizeAccepted:
+      example:
+        job_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        poll_url: /v1/jobs/550e8400-e29b-41d4-a716-446655440000
+        stream_url: /v1/jobs/550e8400-e29b-41d4-a716-446655440000/stream
+        status: pending
+      properties:
+        job_id:
+          format: uuid
+          type: string
+        status:
+          example: pending
+          type: string
+        poll_url:
+          example: /v1/jobs/550e8400-e29b-41d4-a716-446655440000
+          type: string
+        stream_url:
+          example: /v1/jobs/550e8400-e29b-41d4-a716-446655440000/stream
+          type: string
+      required:
+      - job_id
+      - poll_url
+      - status
+      - stream_url
+    JobResponse:
+      example:
+        result:
+          summary:
+            sheets_used:
+            - article_number: article_number
+              quantity: 4
+              sheet_id: sheet_id
+              yield_percent: 73.86281948385884
+            - article_number: article_number
+              quantity: 4
+              sheet_id: sheet_id
+              yield_percent: 73.86281948385884
+            waste_percent: 3.616076749251911
+            unplaced_parts:
+            - unplaced_parts
+            - unplaced_parts
+            yield_percent: 93.01444243932576
+            total_sheets: 7
+            waste_area: 2.027123023002322
+          cost:
+            cycle_cost: 9.369310271410669
+            total_cost: 6.683562403749608
+            setup_cost: 1.1730742509559433
+            rotation_cost: 9.965781217890562
+            cutting_cost: 4.965218492984954
+            stacking_cost: 5.025004791520295
+          metrics:
+            total_rotations: 1
+            total_cuts: 1
+            cut_cycles: 7
+            total_cut_length: 1.2315135367772556
+            total_stacks: 6
+          layouts:
+          - quantity: 6
+            sheet_id: sheet_id
+            placements:
+            - sheet_id: sheet_id
+              x: 1.4658129805029452
+              width: 5.637376656633329
+              "y": 5.962133916683182
+              rotated: true
+              part_id: part_id
+              grain: none
+              height: 2.3021358869347655
+            - sheet_id: sheet_id
+              x: 1.4658129805029452
+              width: 5.637376656633329
+              "y": 5.962133916683182
+              rotated: true
+              part_id: part_id
+              grain: none
+              height: 2.3021358869347655
+          - quantity: 6
+            sheet_id: sheet_id
+            placements:
+            - sheet_id: sheet_id
+              x: 1.4658129805029452
+              width: 5.637376656633329
+              "y": 5.962133916683182
+              rotated: true
+              part_id: part_id
+              grain: none
+              height: 2.3021358869347655
+            - sheet_id: sheet_id
+              x: 1.4658129805029452
+              width: 5.637376656633329
+              "y": 5.962133916683182
+              rotated: true
+              part_id: part_id
+              grain: none
+              height: 2.3021358869347655
+        completed_at: 2000-01-23T04:56:07.000+00:00
+        job_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        warnings:
+        - warnings
+        - warnings
+        progress: 8
+        created_at: 2000-01-23T04:56:07.000+00:00
+        started_at: 2000-01-23T04:56:07.000+00:00
+        error: error
+        status: pending
+      properties:
+        job_id:
+          format: uuid
+          type: string
+        status:
+          enum:
+          - pending
+          - running
+          - completed
+          - failed
+          type: string
+        progress:
+          maximum: 100
+          minimum: 0
+          type: integer
+        created_at:
+          format: date-time
+          type: string
+        started_at:
+          format: date-time
+          type: string
+        completed_at:
+          format: date-time
+          type: string
+        result:
+          $ref: '#/components/schemas/OptimizeResult'
+        warnings:
+          description: E.g. unplaced part IDs
+          items:
+            type: string
+          type: array
+        error:
+          type: string
+      required:
+      - created_at
+      - job_id
+      - progress
+      - status
+    OptimizeResult:
+      example:
+        summary:
+          sheets_used:
+          - article_number: article_number
+            quantity: 4
+            sheet_id: sheet_id
+            yield_percent: 73.86281948385884
+          - article_number: article_number
+            quantity: 4
+            sheet_id: sheet_id
+            yield_percent: 73.86281948385884
+          waste_percent: 3.616076749251911
+          unplaced_parts:
+          - unplaced_parts
+          - unplaced_parts
+          yield_percent: 93.01444243932576
+          total_sheets: 7
+          waste_area: 2.027123023002322
+        cost:
+          cycle_cost: 9.369310271410669
+          total_cost: 6.683562403749608
+          setup_cost: 1.1730742509559433
+          rotation_cost: 9.965781217890562
+          cutting_cost: 4.965218492984954
+          stacking_cost: 5.025004791520295
+        metrics:
+          total_rotations: 1
+          total_cuts: 1
+          cut_cycles: 7
+          total_cut_length: 1.2315135367772556
+          total_stacks: 6
+        layouts:
+        - quantity: 6
+          sheet_id: sheet_id
+          placements:
+          - sheet_id: sheet_id
+            x: 1.4658129805029452
+            width: 5.637376656633329
+            "y": 5.962133916683182
+            rotated: true
+            part_id: part_id
+            grain: none
+            height: 2.3021358869347655
+          - sheet_id: sheet_id
+            x: 1.4658129805029452
+            width: 5.637376656633329
+            "y": 5.962133916683182
+            rotated: true
+            part_id: part_id
+            grain: none
+            height: 2.3021358869347655
+        - quantity: 6
+          sheet_id: sheet_id
+          placements:
+          - sheet_id: sheet_id
+            x: 1.4658129805029452
+            width: 5.637376656633329
+            "y": 5.962133916683182
+            rotated: true
+            part_id: part_id
+            grain: none
+            height: 2.3021358869347655
+          - sheet_id: sheet_id
+            x: 1.4658129805029452
+            width: 5.637376656633329
+            "y": 5.962133916683182
+            rotated: true
+            part_id: part_id
+            grain: none
+            height: 2.3021358869347655
+      properties:
+        layouts:
+          items:
+            $ref: '#/components/schemas/Layout'
+          type: array
+        summary:
+          $ref: '#/components/schemas/Summary'
+        metrics:
+          $ref: '#/components/schemas/Metrics'
+        cost:
+          $ref: '#/components/schemas/Cost'
+      required:
+      - layouts
+      - summary
+    Layout:
+      example:
+        quantity: 6
+        sheet_id: sheet_id
+        placements:
+        - sheet_id: sheet_id
+          x: 1.4658129805029452
+          width: 5.637376656633329
+          "y": 5.962133916683182
+          rotated: true
+          part_id: part_id
+          grain: none
+          height: 2.3021358869347655
+        - sheet_id: sheet_id
+          x: 1.4658129805029452
+          width: 5.637376656633329
+          "y": 5.962133916683182
+          rotated: true
+          part_id: part_id
+          grain: none
+          height: 2.3021358869347655
+      properties:
+        sheet_id:
+          type: string
+        quantity:
+          description: Number of identical sheets using this layout pattern
+          type: integer
+        placements:
+          items:
+            $ref: '#/components/schemas/Placement'
+          type: array
+      required:
+      - placements
+      - quantity
+      - sheet_id
+    Placement:
+      example:
+        sheet_id: sheet_id
+        x: 1.4658129805029452
+        width: 5.637376656633329
+        "y": 5.962133916683182
+        rotated: true
+        part_id: part_id
+        grain: none
+        height: 2.3021358869347655
+      properties:
+        part_id:
+          type: string
+        sheet_id:
+          description: Which sheet type this part is placed on
+          type: string
+        x:
+          description: mm from top-left of usable area
+          format: double
+          type: number
+        "y":
+          description: mm from top-left of usable area
+          format: double
+          type: number
+        width:
+          description: Post-edge-banding dimension
+          format: double
+          type: number
+        height:
+          description: Post-edge-banding dimension
+          format: double
+          type: number
+        rotated:
+          type: boolean
+        grain:
+          $ref: '#/components/schemas/GrainDirection'
+      required:
+      - grain
+      - height
+      - part_id
+      - rotated
+      - sheet_id
+      - width
+      - x
+      - "y"
+    Summary:
+      example:
+        sheets_used:
+        - article_number: article_number
+          quantity: 4
+          sheet_id: sheet_id
+          yield_percent: 73.86281948385884
+        - article_number: article_number
+          quantity: 4
+          sheet_id: sheet_id
+          yield_percent: 73.86281948385884
+        waste_percent: 3.616076749251911
+        unplaced_parts:
+        - unplaced_parts
+        - unplaced_parts
+        yield_percent: 93.01444243932576
+        total_sheets: 7
+        waste_area: 2.027123023002322
+      properties:
+        total_sheets:
+          type: integer
+        yield_percent:
+          format: double
+          maximum: 100
+          minimum: 0
+          type: number
+        waste_percent:
+          format: double
+          type: number
+        waste_area:
+          description: mm²
+          format: double
+          type: number
+        unplaced_parts:
+          items:
+            type: string
+          type: array
+        sheets_used:
+          items:
+            $ref: '#/components/schemas/SheetUsage'
+          type: array
+      required:
+      - sheets_used
+      - total_sheets
+      - waste_area
+      - waste_percent
+      - yield_percent
+    SheetUsage:
+      example:
+        article_number: article_number
+        quantity: 4
+        sheet_id: sheet_id
+        yield_percent: 73.86281948385884
+      properties:
+        sheet_id:
+          type: string
+        article_number:
+          description: "Article/SKU reference (from request, if provided)"
+          type: string
+        quantity:
+          description: Number of this sheet type consumed
+          type: integer
+        yield_percent:
+          description: Yield percentage for this sheet type
+          format: double
+          maximum: 100
+          minimum: 0
+          type: number
+      required:
+      - quantity
+      - sheet_id
+      - yield_percent
+    Metrics:
+      example:
+        total_rotations: 1
+        total_cuts: 1
+        cut_cycles: 7
+        total_cut_length: 1.2315135367772556
+        total_stacks: 6
+      properties:
+        total_cut_length:
+          description: Total cut length in mm
+          format: double
+          type: number
+        total_cuts:
+          type: integer
+        total_rotations:
+          type: integer
+        total_stacks:
+          type: integer
+        cut_cycles:
+          type: integer
+      required:
+      - cut_cycles
+      - total_cut_length
+      - total_cuts
+      - total_rotations
+      - total_stacks
+    Cost:
+      example:
+        cycle_cost: 9.369310271410669
+        total_cost: 6.683562403749608
+        setup_cost: 1.1730742509559433
+        rotation_cost: 9.965781217890562
+        cutting_cost: 4.965218492984954
+        stacking_cost: 5.025004791520295
+      properties:
+        setup_cost:
+          format: double
+          type: number
+        cutting_cost:
+          format: double
+          type: number
+        stacking_cost:
+          format: double
+          type: number
+        rotation_cost:
+          format: double
+          type: number
+        cycle_cost:
+          format: double
+          type: number
+        total_cost:
+          format: double
+          type: number
+      required:
+      - cutting_cost
+      - cycle_cost
+      - rotation_cost
+      - setup_cost
+      - stacking_cost
+      - total_cost
+  securitySchemes:
+    apiKey:
+      description: API key with `sk_` prefix
+      in: header
+      name: X-API-Key
+      type: apiKey
+
