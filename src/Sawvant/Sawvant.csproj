@@ -14,7 +14,7 @@
     <RootNamespace>Sawvant</RootNamespace>
     <Version>0.1.0</Version>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Sawvant.xml</DocumentationFile>
-    <RepositoryUrl>https://github.com/GIT_USER_ID/GIT_REPO_ID.git</RepositoryUrl>
+    <RepositoryUrl>https://github.com/sawvant/sawvant-dotnet.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReleaseNotes>Minor update</PackageReleaseNotes>
     <Nullable>enable</Nullable>

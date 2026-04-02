@@ -35,8 +35,8 @@ java -jar "<path>/openapi-generator/modules/openapi-generator-cli/target/openapi
     --additional-properties $properties `
     --global-property $global `
     --git-host "github.com" `
-    --git-repo-id "GIT_REPO_ID" `
-    --git-user-id "GIT_USER_ID" `
+    --git-repo-id "sawvant-dotnet" `
+    --git-user-id "sawvant" `
     --release-note "Minor update"
     # -t templates
 ```
@@ -154,8 +154,8 @@ Authentication schemes defined for the API:
 - conditionalSerialization: false
 - disallowAdditionalPropertiesIfNotPresent: 
 - gitHost: github.com
-- gitRepoId: GIT_REPO_ID
-- gitUserId: GIT_USER_ID
+- gitRepoId: sawvant-dotnet
+- gitUserId: sawvant
 - hideGenerationTimestamp: true
 - interfacePrefix: I
 - library: generichost
@@ -172,7 +172,7 @@ Authentication schemes defined for the API:
 - packageCompany: OpenAPI
 - packageCopyright: No Copyright
 - packageDescription: A library generated from a OpenAPI doc
-- packageGuid: {C2A95F36-E4E5-4B5F-AD7C-898429782AF9}
+- packageGuid: {5409A0C9-1A82-4C9D-9FDF-873ED5C1A388}
 - packageName: Sawvant
 - packageTags: 
 - packageTitle: OpenAPI Library
