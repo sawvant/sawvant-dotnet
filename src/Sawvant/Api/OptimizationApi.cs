@@ -33,6 +33,29 @@ namespace Sawvant.Api
         OptimizationApiEvents Events { get; }
 
         /// <summary>
+        /// Submit multiple cutting optimization jobs
+        /// </summary>
+        /// <remarks>
+        /// Enqueues an array of optimization requests as individual jobs and returns their IDs immediately. Poll or stream each job separately.  Maximum 50 fast jobs or 10 thorough jobs per batch. Requires a tier with the &#x60;batch&#x60; feature. 
+        /// </remarks>
+        /// <exception cref="ApiException">Thrown when fails to make API call</exception>
+        /// <param name="batchRequest"></param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns><see cref="Task"/>&lt;<see cref="ICreateBatchOptimizationApiResponse"/>&gt;</returns>
+        Task<ICreateBatchOptimizationApiResponse> CreateBatchOptimizationAsync(BatchRequest batchRequest, System.Threading.CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Submit multiple cutting optimization jobs
+        /// </summary>
+        /// <remarks>
+        /// Enqueues an array of optimization requests as individual jobs and returns their IDs immediately. Poll or stream each job separately.  Maximum 50 fast jobs or 10 thorough jobs per batch. Requires a tier with the &#x60;batch&#x60; feature. 
+        /// </remarks>
+        /// <param name="batchRequest"></param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns><see cref="Task"/>&lt;<see cref="ICreateBatchOptimizationApiResponse"/>?&gt;</returns>
+        Task<ICreateBatchOptimizationApiResponse?> CreateBatchOptimizationOrDefaultAsync(BatchRequest batchRequest, System.Threading.CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Submit a cutting optimization job
         /// </summary>
         /// <remarks>
@@ -57,9 +80,45 @@ namespace Sawvant.Api
     }
 
     /// <summary>
+    /// The <see cref="ICreateBatchOptimizationApiResponse"/>
+    /// </summary>
+    public interface ICreateBatchOptimizationApiResponse : Sawvant.Client.IApiResponse, IAccepted<Sawvant.Model.BatchAccepted?>, IBadRequest<Sawvant.Model.Error?>, IUnauthorized<Sawvant.Model.Error?>, IForbidden<Sawvant.Model.Error?>, ITooManyRequests<Sawvant.Model.RateLimitError?>
+    {
+        /// <summary>
+        /// Returns true if the response is 202 Accepted
+        /// </summary>
+        /// <returns></returns>
+        bool IsAccepted { get; }
+
+        /// <summary>
+        /// Returns true if the response is 400 BadRequest
+        /// </summary>
+        /// <returns></returns>
+        bool IsBadRequest { get; }
+
+        /// <summary>
+        /// Returns true if the response is 401 Unauthorized
+        /// </summary>
+        /// <returns></returns>
+        bool IsUnauthorized { get; }
+
+        /// <summary>
+        /// Returns true if the response is 403 Forbidden
+        /// </summary>
+        /// <returns></returns>
+        bool IsForbidden { get; }
+
+        /// <summary>
+        /// Returns true if the response is 429 TooManyRequests
+        /// </summary>
+        /// <returns></returns>
+        bool IsTooManyRequests { get; }
+    }
+
+    /// <summary>
     /// The <see cref="ICreateOptimizationApiResponse"/>
     /// </summary>
-    public interface ICreateOptimizationApiResponse : Sawvant.Client.IApiResponse, IAccepted<Sawvant.Model.OptimizeAccepted?>, IBadRequest<Sawvant.Model.Error?>, IUnauthorized<Sawvant.Model.Error?>, IForbidden<Sawvant.Model.Error?>, IUnprocessableContent<Sawvant.Model.Error?>, ITooManyRequests<Sawvant.Model.RateLimitError?>
+    public interface ICreateOptimizationApiResponse : Sawvant.Client.IApiResponse, IAccepted<Sawvant.Model.OptimizeAccepted?>, IBadRequest<Sawvant.Model.ApiError?>, IUnauthorized<Sawvant.Model.Error?>, IForbidden<Sawvant.Model.Error?>, IUnprocessableContent<Sawvant.Model.ApiError?>, IInternalServerError<Sawvant.Model.ApiError?>, IServiceUnavailable<Sawvant.Model.ApiError?>, ITooManyRequests<Sawvant.Model.RateLimitError?>
     {
         /// <summary>
         /// Returns true if the response is 202 Accepted
@@ -92,6 +151,18 @@ namespace Sawvant.Api
         bool IsUnprocessableContent { get; }
 
         /// <summary>
+        /// Returns true if the response is 500 InternalServerError
+        /// </summary>
+        /// <returns></returns>
+        bool IsInternalServerError { get; }
+
+        /// <summary>
+        /// Returns true if the response is 503 ServiceUnavailable
+        /// </summary>
+        /// <returns></returns>
+        bool IsServiceUnavailable { get; }
+
+        /// <summary>
         /// Returns true if the response is 429 TooManyRequests
         /// </summary>
         /// <returns></returns>
@@ -103,6 +174,26 @@ namespace Sawvant.Api
     /// </summary>
     public class OptimizationApiEvents
     {
+        /// <summary>
+        /// The event raised after the server response
+        /// </summary>
+        public event EventHandler<ApiResponseEventArgs>? OnCreateBatchOptimization;
+
+        /// <summary>
+        /// The event raised after an error querying the server
+        /// </summary>
+        public event EventHandler<ExceptionEventArgs>? OnErrorCreateBatchOptimization;
+
+        internal void ExecuteOnCreateBatchOptimization(OptimizationApi.CreateBatchOptimizationApiResponse apiResponse)
+        {
+            OnCreateBatchOptimization?.Invoke(this, new ApiResponseEventArgs(apiResponse));
+        }
+
+        internal void ExecuteOnErrorCreateBatchOptimization(Exception exception)
+        {
+            OnErrorCreateBatchOptimization?.Invoke(this, new ExceptionEventArgs(exception));
+        }
+
         /// <summary>
         /// The event raised after the server response
         /// </summary>
@@ -169,6 +260,397 @@ namespace Sawvant.Api
             HttpClient = httpClient;
             Events = optimizationApiEvents;
             ApiKeyProvider = apiKeyProvider;
+        }
+
+        partial void FormatCreateBatchOptimization(BatchRequest batchRequest);
+
+        /// <summary>
+        /// Validates the request parameters
+        /// </summary>
+        /// <param name="batchRequest"></param>
+        /// <returns></returns>
+        private void ValidateCreateBatchOptimization(BatchRequest batchRequest)
+        {
+            if (batchRequest == null)
+                throw new ArgumentNullException(nameof(batchRequest));
+        }
+
+        /// <summary>
+        /// Processes the server response
+        /// </summary>
+        /// <param name="apiResponseLocalVar"></param>
+        /// <param name="batchRequest"></param>
+        private void AfterCreateBatchOptimizationDefaultImplementation(ICreateBatchOptimizationApiResponse apiResponseLocalVar, BatchRequest batchRequest)
+        {
+            bool suppressDefaultLog = false;
+            AfterCreateBatchOptimization(ref suppressDefaultLog, apiResponseLocalVar, batchRequest);
+            if (!suppressDefaultLog)
+                Logger.LogInformation("{0,-9} | {1} | {3}", (apiResponseLocalVar.DownloadedAt - apiResponseLocalVar.RequestedAt).TotalSeconds, apiResponseLocalVar.StatusCode, apiResponseLocalVar.Path);
+        }
+
+        /// <summary>
+        /// Processes the server response
+        /// </summary>
+        /// <param name="suppressDefaultLog"></param>
+        /// <param name="apiResponseLocalVar"></param>
+        /// <param name="batchRequest"></param>
+        partial void AfterCreateBatchOptimization(ref bool suppressDefaultLog, ICreateBatchOptimizationApiResponse apiResponseLocalVar, BatchRequest batchRequest);
+
+        /// <summary>
+        /// Logs exceptions that occur while retrieving the server response
+        /// </summary>
+        /// <param name="exceptionLocalVar"></param>
+        /// <param name="pathFormatLocalVar"></param>
+        /// <param name="pathLocalVar"></param>
+        /// <param name="batchRequest"></param>
+        private void OnErrorCreateBatchOptimizationDefaultImplementation(Exception exceptionLocalVar, string pathFormatLocalVar, string pathLocalVar, BatchRequest batchRequest)
+        {
+            bool suppressDefaultLogLocalVar = false;
+            OnErrorCreateBatchOptimization(ref suppressDefaultLogLocalVar, exceptionLocalVar, pathFormatLocalVar, pathLocalVar, batchRequest);
+            if (!suppressDefaultLogLocalVar)
+                Logger.LogError(exceptionLocalVar, "An error occurred while sending the request to the server.");
+        }
+
+        /// <summary>
+        /// A partial method that gives developers a way to provide customized exception handling
+        /// </summary>
+        /// <param name="suppressDefaultLogLocalVar"></param>
+        /// <param name="exceptionLocalVar"></param>
+        /// <param name="pathFormatLocalVar"></param>
+        /// <param name="pathLocalVar"></param>
+        /// <param name="batchRequest"></param>
+        partial void OnErrorCreateBatchOptimization(ref bool suppressDefaultLogLocalVar, Exception exceptionLocalVar, string pathFormatLocalVar, string pathLocalVar, BatchRequest batchRequest);
+
+        /// <summary>
+        /// Submit multiple cutting optimization jobs Enqueues an array of optimization requests as individual jobs and returns their IDs immediately. Poll or stream each job separately.  Maximum 50 fast jobs or 10 thorough jobs per batch. Requires a tier with the &#x60;batch&#x60; feature. 
+        /// </summary>
+        /// <param name="batchRequest"></param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns><see cref="Task"/>&lt;<see cref="ICreateBatchOptimizationApiResponse"/>&gt;</returns>
+        public async Task<ICreateBatchOptimizationApiResponse?> CreateBatchOptimizationOrDefaultAsync(BatchRequest batchRequest, System.Threading.CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await CreateBatchOptimizationAsync(batchRequest, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Submit multiple cutting optimization jobs Enqueues an array of optimization requests as individual jobs and returns their IDs immediately. Poll or stream each job separately.  Maximum 50 fast jobs or 10 thorough jobs per batch. Requires a tier with the &#x60;batch&#x60; feature. 
+        /// </summary>
+        /// <exception cref="ApiException">Thrown when fails to make API call</exception>
+        /// <param name="batchRequest"></param>
+        /// <param name="cancellationToken">Cancellation Token to cancel the request.</param>
+        /// <returns><see cref="Task"/>&lt;<see cref="ICreateBatchOptimizationApiResponse"/>&gt;</returns>
+        public async Task<ICreateBatchOptimizationApiResponse> CreateBatchOptimizationAsync(BatchRequest batchRequest, System.Threading.CancellationToken cancellationToken = default)
+        {
+            UriBuilder uriBuilderLocalVar = new UriBuilder();
+
+            try
+            {
+                ValidateCreateBatchOptimization(batchRequest);
+
+                FormatCreateBatchOptimization(batchRequest);
+
+                using (HttpRequestMessage httpRequestMessageLocalVar = new HttpRequestMessage())
+                {
+                    uriBuilderLocalVar.Host = HttpClient.BaseAddress!.Host;
+                    uriBuilderLocalVar.Port = HttpClient.BaseAddress.Port;
+                    uriBuilderLocalVar.Scheme = HttpClient.BaseAddress.Scheme;
+                    uriBuilderLocalVar.Path = ClientUtils.CONTEXT_PATH + "/v1/optimize/batch";
+
+                    httpRequestMessageLocalVar.Content = (batchRequest as object) is System.IO.Stream stream
+                        ? httpRequestMessageLocalVar.Content = new StreamContent(stream)
+                        : httpRequestMessageLocalVar.Content = new StringContent(JsonSerializer.Serialize(batchRequest, _jsonSerializerOptions));
+
+                    List<TokenBase> tokenBaseLocalVars = new List<TokenBase>();
+                    ApiKeyToken apiKeyTokenLocalVar1 = (ApiKeyToken) await ApiKeyProvider.GetAsync("X-API-Key", cancellationToken).ConfigureAwait(false);
+                    tokenBaseLocalVars.Add(apiKeyTokenLocalVar1);
+                    apiKeyTokenLocalVar1.UseInHeader(httpRequestMessageLocalVar);
+
+                    httpRequestMessageLocalVar.RequestUri = uriBuilderLocalVar.Uri;
+
+                    string[] contentTypes = new string[] {
+                        "application/json"
+                    };
+
+                    string? contentTypeLocalVar = ClientUtils.SelectHeaderContentType(contentTypes);
+
+                    if (contentTypeLocalVar != null && httpRequestMessageLocalVar.Content != null)
+                        httpRequestMessageLocalVar.Content.Headers.ContentType = new MediaTypeHeaderValue(contentTypeLocalVar);
+
+                    string[] acceptLocalVars = new string[] {
+                        "application/json"
+                    };
+
+                    string? acceptLocalVar = ClientUtils.SelectHeaderAccept(acceptLocalVars);
+
+                    if (acceptLocalVar != null)
+                        httpRequestMessageLocalVar.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue(acceptLocalVar));
+
+                    httpRequestMessageLocalVar.Method = HttpMethod.Post;
+
+                    DateTime requestedAtLocalVar = DateTime.UtcNow;
+
+                    using (HttpResponseMessage httpResponseMessageLocalVar = await HttpClient.SendAsync(httpRequestMessageLocalVar, cancellationToken).ConfigureAwait(false))
+                    {
+                        string responseContentLocalVar = await httpResponseMessageLocalVar.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+                        ILogger<CreateBatchOptimizationApiResponse> apiResponseLoggerLocalVar = LoggerFactory.CreateLogger<CreateBatchOptimizationApiResponse>();
+
+                        CreateBatchOptimizationApiResponse apiResponseLocalVar = new(apiResponseLoggerLocalVar, httpRequestMessageLocalVar, httpResponseMessageLocalVar, responseContentLocalVar, "/v1/optimize/batch", requestedAtLocalVar, _jsonSerializerOptions);
+
+                        AfterCreateBatchOptimizationDefaultImplementation(apiResponseLocalVar, batchRequest);
+
+                        Events.ExecuteOnCreateBatchOptimization(apiResponseLocalVar);
+
+                        if (apiResponseLocalVar.StatusCode == (HttpStatusCode) 429)
+                            foreach(TokenBase tokenBaseLocalVar in tokenBaseLocalVars)
+                                tokenBaseLocalVar.BeginRateLimit();
+
+                        return apiResponseLocalVar;
+                    }
+                }
+            }
+            catch(Exception e)
+            {
+                OnErrorCreateBatchOptimizationDefaultImplementation(e, "/v1/optimize/batch", uriBuilderLocalVar.Path, batchRequest);
+                Events.ExecuteOnErrorCreateBatchOptimization(e);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// The <see cref="CreateBatchOptimizationApiResponse"/>
+        /// </summary>
+        public partial class CreateBatchOptimizationApiResponse : Sawvant.Client.ApiResponse, ICreateBatchOptimizationApiResponse
+        {
+            /// <summary>
+            /// The logger
+            /// </summary>
+            public ILogger<CreateBatchOptimizationApiResponse> Logger { get; }
+
+            /// <summary>
+            /// The <see cref="CreateBatchOptimizationApiResponse"/>
+            /// </summary>
+            /// <param name="logger"></param>
+            /// <param name="httpRequestMessage"></param>
+            /// <param name="httpResponseMessage"></param>
+            /// <param name="rawContent"></param>
+            /// <param name="path"></param>
+            /// <param name="requestedAt"></param>
+            /// <param name="jsonSerializerOptions"></param>
+            public CreateBatchOptimizationApiResponse(ILogger<CreateBatchOptimizationApiResponse> logger, System.Net.Http.HttpRequestMessage httpRequestMessage, System.Net.Http.HttpResponseMessage httpResponseMessage, string rawContent, string path, DateTime requestedAt, System.Text.Json.JsonSerializerOptions jsonSerializerOptions) : base(httpRequestMessage, httpResponseMessage, rawContent, path, requestedAt, jsonSerializerOptions)
+            {
+                Logger = logger;
+                OnCreated(httpRequestMessage, httpResponseMessage);
+            }
+
+            partial void OnCreated(global::System.Net.Http.HttpRequestMessage httpRequestMessage, System.Net.Http.HttpResponseMessage httpResponseMessage);
+
+            /// <summary>
+            /// Returns true if the response is 202 Accepted
+            /// </summary>
+            /// <returns></returns>
+            public bool IsAccepted => 202 == (int)StatusCode;
+
+            /// <summary>
+            /// Deserializes the response if the response is 202 Accepted
+            /// </summary>
+            /// <returns></returns>
+            public Sawvant.Model.BatchAccepted? Accepted()
+            {
+                // This logic may be modified with the AsModel.mustache template
+                return IsAccepted
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.BatchAccepted>(RawContent, _jsonSerializerOptions)
+                    : null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 202 Accepted and the deserialized response is not null
+            /// </summary>
+            /// <param name="result"></param>
+            /// <returns></returns>
+            public bool TryAccepted([NotNullWhen(true)]out Sawvant.Model.BatchAccepted? result)
+            {
+                result = null;
+
+                try
+                {
+                    result = Accepted();
+                } catch (Exception e)
+                {
+                    OnDeserializationErrorDefaultImplementation(e, (HttpStatusCode)202);
+                }
+
+                return result != null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 400 BadRequest
+            /// </summary>
+            /// <returns></returns>
+            public bool IsBadRequest => 400 == (int)StatusCode;
+
+            /// <summary>
+            /// Deserializes the response if the response is 400 BadRequest
+            /// </summary>
+            /// <returns></returns>
+            public Sawvant.Model.Error? BadRequest()
+            {
+                // This logic may be modified with the AsModel.mustache template
+                return IsBadRequest
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.Error>(RawContent, _jsonSerializerOptions)
+                    : null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 400 BadRequest and the deserialized response is not null
+            /// </summary>
+            /// <param name="result"></param>
+            /// <returns></returns>
+            public bool TryBadRequest([NotNullWhen(true)]out Sawvant.Model.Error? result)
+            {
+                result = null;
+
+                try
+                {
+                    result = BadRequest();
+                } catch (Exception e)
+                {
+                    OnDeserializationErrorDefaultImplementation(e, (HttpStatusCode)400);
+                }
+
+                return result != null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 401 Unauthorized
+            /// </summary>
+            /// <returns></returns>
+            public bool IsUnauthorized => 401 == (int)StatusCode;
+
+            /// <summary>
+            /// Deserializes the response if the response is 401 Unauthorized
+            /// </summary>
+            /// <returns></returns>
+            public Sawvant.Model.Error? Unauthorized()
+            {
+                // This logic may be modified with the AsModel.mustache template
+                return IsUnauthorized
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.Error>(RawContent, _jsonSerializerOptions)
+                    : null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 401 Unauthorized and the deserialized response is not null
+            /// </summary>
+            /// <param name="result"></param>
+            /// <returns></returns>
+            public bool TryUnauthorized([NotNullWhen(true)]out Sawvant.Model.Error? result)
+            {
+                result = null;
+
+                try
+                {
+                    result = Unauthorized();
+                } catch (Exception e)
+                {
+                    OnDeserializationErrorDefaultImplementation(e, (HttpStatusCode)401);
+                }
+
+                return result != null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 403 Forbidden
+            /// </summary>
+            /// <returns></returns>
+            public bool IsForbidden => 403 == (int)StatusCode;
+
+            /// <summary>
+            /// Deserializes the response if the response is 403 Forbidden
+            /// </summary>
+            /// <returns></returns>
+            public Sawvant.Model.Error? Forbidden()
+            {
+                // This logic may be modified with the AsModel.mustache template
+                return IsForbidden
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.Error>(RawContent, _jsonSerializerOptions)
+                    : null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 403 Forbidden and the deserialized response is not null
+            /// </summary>
+            /// <param name="result"></param>
+            /// <returns></returns>
+            public bool TryForbidden([NotNullWhen(true)]out Sawvant.Model.Error? result)
+            {
+                result = null;
+
+                try
+                {
+                    result = Forbidden();
+                } catch (Exception e)
+                {
+                    OnDeserializationErrorDefaultImplementation(e, (HttpStatusCode)403);
+                }
+
+                return result != null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 429 TooManyRequests
+            /// </summary>
+            /// <returns></returns>
+            public bool IsTooManyRequests => 429 == (int)StatusCode;
+
+            /// <summary>
+            /// Deserializes the response if the response is 429 TooManyRequests
+            /// </summary>
+            /// <returns></returns>
+            public Sawvant.Model.RateLimitError? TooManyRequests()
+            {
+                // This logic may be modified with the AsModel.mustache template
+                return IsTooManyRequests
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.RateLimitError>(RawContent, _jsonSerializerOptions)
+                    : null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 429 TooManyRequests and the deserialized response is not null
+            /// </summary>
+            /// <param name="result"></param>
+            /// <returns></returns>
+            public bool TryTooManyRequests([NotNullWhen(true)]out Sawvant.Model.RateLimitError? result)
+            {
+                result = null;
+
+                try
+                {
+                    result = TooManyRequests();
+                } catch (Exception e)
+                {
+                    OnDeserializationErrorDefaultImplementation(e, (HttpStatusCode)429);
+                }
+
+                return result != null;
+            }
+
+            private void OnDeserializationErrorDefaultImplementation(Exception exception, HttpStatusCode httpStatusCode)
+            {
+                bool suppressDefaultLog = false;
+                OnDeserializationError(ref suppressDefaultLog, exception, httpStatusCode);
+                if (!suppressDefaultLog)
+                    Logger.LogError(exception, "An error occurred while deserializing the {code} response.", httpStatusCode);
+            }
+
+            partial void OnDeserializationError(ref bool suppressDefaultLog, Exception exception, HttpStatusCode httpStatusCode);
         }
 
         partial void FormatCreateOptimization(OptimizeRequest optimizeRequest);
@@ -409,11 +891,11 @@ namespace Sawvant.Api
             /// Deserializes the response if the response is 400 BadRequest
             /// </summary>
             /// <returns></returns>
-            public Sawvant.Model.Error? BadRequest()
+            public Sawvant.Model.ApiError? BadRequest()
             {
                 // This logic may be modified with the AsModel.mustache template
                 return IsBadRequest
-                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.Error>(RawContent, _jsonSerializerOptions)
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.ApiError>(RawContent, _jsonSerializerOptions)
                     : null;
             }
 
@@ -422,7 +904,7 @@ namespace Sawvant.Api
             /// </summary>
             /// <param name="result"></param>
             /// <returns></returns>
-            public bool TryBadRequest([NotNullWhen(true)]out Sawvant.Model.Error? result)
+            public bool TryBadRequest([NotNullWhen(true)]out Sawvant.Model.ApiError? result)
             {
                 result = null;
 
@@ -523,11 +1005,11 @@ namespace Sawvant.Api
             /// Deserializes the response if the response is 422 UnprocessableContent
             /// </summary>
             /// <returns></returns>
-            public Sawvant.Model.Error? UnprocessableContent()
+            public Sawvant.Model.ApiError? UnprocessableContent()
             {
                 // This logic may be modified with the AsModel.mustache template
                 return IsUnprocessableContent
-                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.Error>(RawContent, _jsonSerializerOptions)
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.ApiError>(RawContent, _jsonSerializerOptions)
                     : null;
             }
 
@@ -536,7 +1018,7 @@ namespace Sawvant.Api
             /// </summary>
             /// <param name="result"></param>
             /// <returns></returns>
-            public bool TryUnprocessableContent([NotNullWhen(true)]out Sawvant.Model.Error? result)
+            public bool TryUnprocessableContent([NotNullWhen(true)]out Sawvant.Model.ApiError? result)
             {
                 result = null;
 
@@ -546,6 +1028,82 @@ namespace Sawvant.Api
                 } catch (Exception e)
                 {
                     OnDeserializationErrorDefaultImplementation(e, (HttpStatusCode)422);
+                }
+
+                return result != null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 500 InternalServerError
+            /// </summary>
+            /// <returns></returns>
+            public bool IsInternalServerError => 500 == (int)StatusCode;
+
+            /// <summary>
+            /// Deserializes the response if the response is 500 InternalServerError
+            /// </summary>
+            /// <returns></returns>
+            public Sawvant.Model.ApiError? InternalServerError()
+            {
+                // This logic may be modified with the AsModel.mustache template
+                return IsInternalServerError
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.ApiError>(RawContent, _jsonSerializerOptions)
+                    : null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 500 InternalServerError and the deserialized response is not null
+            /// </summary>
+            /// <param name="result"></param>
+            /// <returns></returns>
+            public bool TryInternalServerError([NotNullWhen(true)]out Sawvant.Model.ApiError? result)
+            {
+                result = null;
+
+                try
+                {
+                    result = InternalServerError();
+                } catch (Exception e)
+                {
+                    OnDeserializationErrorDefaultImplementation(e, (HttpStatusCode)500);
+                }
+
+                return result != null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 503 ServiceUnavailable
+            /// </summary>
+            /// <returns></returns>
+            public bool IsServiceUnavailable => 503 == (int)StatusCode;
+
+            /// <summary>
+            /// Deserializes the response if the response is 503 ServiceUnavailable
+            /// </summary>
+            /// <returns></returns>
+            public Sawvant.Model.ApiError? ServiceUnavailable()
+            {
+                // This logic may be modified with the AsModel.mustache template
+                return IsServiceUnavailable
+                    ? System.Text.Json.JsonSerializer.Deserialize<Sawvant.Model.ApiError>(RawContent, _jsonSerializerOptions)
+                    : null;
+            }
+
+            /// <summary>
+            /// Returns true if the response is 503 ServiceUnavailable and the deserialized response is not null
+            /// </summary>
+            /// <param name="result"></param>
+            /// <returns></returns>
+            public bool TryServiceUnavailable([NotNullWhen(true)]out Sawvant.Model.ApiError? result)
+            {
+                result = null;
+
+                try
+                {
+                    result = ServiceUnavailable();
+                } catch (Exception e)
+                {
+                    OnDeserializationErrorDefaultImplementation(e, (HttpStatusCode)503);
                 }
 
                 return result != null;

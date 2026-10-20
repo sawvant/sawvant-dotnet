@@ -5,6 +5,8 @@ All URIs are relative to *https://api.sawvant.com*
 | Method | HTTP request | Description |
 |--------|--------------|-------------|
 | [**GetJob**](JobsApi.md#getjob) | **GET** /v1/jobs/{id} | Get job status |
+| [**GetJobDiagramPDF**](JobsApi.md#getjobdiagrampdf) | **GET** /v1/jobs/{id}/diagram.pdf | Render a cutting plan as PDF |
+| [**GetJobDiagramSVG**](JobsApi.md#getjobdiagramsvg) | **GET** /v1/jobs/{id}/diagram | Render a cutting plan as SVG |
 | [**StreamJob**](JobsApi.md#streamjob) | **GET** /v1/jobs/{id}/stream | Stream job progress via SSE |
 
 <a id="getjob"></a>
@@ -103,6 +105,208 @@ catch (ApiException e)
 | **400** | Invalid job ID format |  -  |
 | **401** | Missing or invalid API key |  -  |
 | **404** | Job not found |  -  |
+
+[[Back to top]](#) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to Model list]](../../README.md#documentation-for-models) [[Back to README]](../../README.md)
+
+<a id="getjobdiagrampdf"></a>
+# **GetJobDiagramPDF**
+> System.IO.Stream GetJobDiagramPDF (Guid id)
+
+Render a cutting plan as PDF
+
+Returns every sheet layout of a completed job as a printable PDF cutting plan. 
+
+### Example
+```csharp
+using System.Collections.Generic;
+using System.Diagnostics;
+using Sawvant.Api;
+using Sawvant.Client;
+using Sawvant.Model;
+
+namespace Example
+{
+    public class GetJobDiagramPDFExample
+    {
+        public static void Main()
+        {
+            Configuration config = new Configuration();
+            config.BasePath = "https://api.sawvant.com";
+            // Configure API key authorization: apiKey
+            config.AddApiKey("X-API-Key", "YOUR_API_KEY");
+            // Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+            // config.AddApiKeyPrefix("X-API-Key", "Bearer");
+
+            var apiInstance = new JobsApi(config);
+            var id = "id_example";  // Guid | Job UUID
+
+            try
+            {
+                // Render a cutting plan as PDF
+                System.IO.Stream result = apiInstance.GetJobDiagramPDF(id);
+                Debug.WriteLine(result);
+            }
+            catch (ApiException  e)
+            {
+                Debug.Print("Exception when calling JobsApi.GetJobDiagramPDF: " + e.Message);
+                Debug.Print("Status Code: " + e.ErrorCode);
+                Debug.Print(e.StackTrace);
+            }
+        }
+    }
+}
+```
+
+#### Using the GetJobDiagramPDFWithHttpInfo variant
+This returns an ApiResponse object which contains the response data, status code and headers.
+
+```csharp
+try
+{
+    // Render a cutting plan as PDF
+    ApiResponse<System.IO.Stream> response = apiInstance.GetJobDiagramPDFWithHttpInfo(id);
+    Debug.Write("Status Code: " + response.StatusCode);
+    Debug.Write("Response Headers: " + response.Headers);
+    Debug.Write("Response Body: " + response.Data);
+}
+catch (ApiException e)
+{
+    Debug.Print("Exception when calling JobsApi.GetJobDiagramPDFWithHttpInfo: " + e.Message);
+    Debug.Print("Status Code: " + e.ErrorCode);
+    Debug.Print(e.StackTrace);
+}
+```
+
+### Parameters
+
+| Name | Type | Description | Notes |
+|------|------|-------------|-------|
+| **id** | **Guid** | Job UUID |  |
+
+### Return type
+
+**System.IO.Stream**
+
+### Authorization
+
+[apiKey](../README.md#apiKey)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: application/pdf, application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | PDF cutting plan |  -  |
+| **400** | Invalid job ID |  -  |
+| **401** | Missing or invalid API key |  -  |
+| **404** | Job not found |  -  |
+| **422** | Job is not completed |  -  |
+
+[[Back to top]](#) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to Model list]](../../README.md#documentation-for-models) [[Back to README]](../../README.md)
+
+<a id="getjobdiagramsvg"></a>
+# **GetJobDiagramSVG**
+> string GetJobDiagramSVG (Guid id, int sheet = null)
+
+Render a cutting plan as SVG
+
+Returns one sheet layout of a completed job as an SVG cutting plan with dimensions and grain direction. 
+
+### Example
+```csharp
+using System.Collections.Generic;
+using System.Diagnostics;
+using Sawvant.Api;
+using Sawvant.Client;
+using Sawvant.Model;
+
+namespace Example
+{
+    public class GetJobDiagramSVGExample
+    {
+        public static void Main()
+        {
+            Configuration config = new Configuration();
+            config.BasePath = "https://api.sawvant.com";
+            // Configure API key authorization: apiKey
+            config.AddApiKey("X-API-Key", "YOUR_API_KEY");
+            // Uncomment below to setup prefix (e.g. Bearer) for API key, if needed
+            // config.AddApiKeyPrefix("X-API-Key", "Bearer");
+
+            var apiInstance = new JobsApi(config);
+            var id = "id_example";  // Guid | Job UUID
+            var sheet = 0;  // int | Index into the job's `layouts` array (optional)  (default to 0)
+
+            try
+            {
+                // Render a cutting plan as SVG
+                string result = apiInstance.GetJobDiagramSVG(id, sheet);
+                Debug.WriteLine(result);
+            }
+            catch (ApiException  e)
+            {
+                Debug.Print("Exception when calling JobsApi.GetJobDiagramSVG: " + e.Message);
+                Debug.Print("Status Code: " + e.ErrorCode);
+                Debug.Print(e.StackTrace);
+            }
+        }
+    }
+}
+```
+
+#### Using the GetJobDiagramSVGWithHttpInfo variant
+This returns an ApiResponse object which contains the response data, status code and headers.
+
+```csharp
+try
+{
+    // Render a cutting plan as SVG
+    ApiResponse<string> response = apiInstance.GetJobDiagramSVGWithHttpInfo(id, sheet);
+    Debug.Write("Status Code: " + response.StatusCode);
+    Debug.Write("Response Headers: " + response.Headers);
+    Debug.Write("Response Body: " + response.Data);
+}
+catch (ApiException e)
+{
+    Debug.Print("Exception when calling JobsApi.GetJobDiagramSVGWithHttpInfo: " + e.Message);
+    Debug.Print("Status Code: " + e.ErrorCode);
+    Debug.Print(e.StackTrace);
+}
+```
+
+### Parameters
+
+| Name | Type | Description | Notes |
+|------|------|-------------|-------|
+| **id** | **Guid** | Job UUID |  |
+| **sheet** | **int** | Index into the job&#39;s &#x60;layouts&#x60; array | [optional] [default to 0] |
+
+### Return type
+
+**string**
+
+### Authorization
+
+[apiKey](../README.md#apiKey)
+
+### HTTP request headers
+
+ - **Content-Type**: Not defined
+ - **Accept**: image/svg+xml, application/json
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | SVG cutting plan |  -  |
+| **400** | Invalid job ID or sheet index |  -  |
+| **401** | Missing or invalid API key |  -  |
+| **404** | Job not found |  -  |
+| **422** | Job is not completed, or has no layouts |  -  |
 
 [[Back to top]](#) [[Back to API list]](../../README.md#documentation-for-api-endpoints) [[Back to Model list]](../../README.md#documentation-for-models) [[Back to README]](../../README.md)
 

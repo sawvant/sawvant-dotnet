@@ -60,6 +60,31 @@ namespace Sawvant.Test.Api
         }
 
         /// <summary>
+        /// Test GetJobDiagramPDF
+        /// </summary>
+        [Fact (Skip = "not implemented")]
+        public async Task GetJobDiagramPDFAsyncTest()
+        {
+            Guid id = default!;
+            var response = await _instance.GetJobDiagramPDFAsync(id);
+            var model = response.Ok();
+            Assert.IsType<System.IO.Stream>(model);
+        }
+
+        /// <summary>
+        /// Test GetJobDiagramSVG
+        /// </summary>
+        [Fact (Skip = "not implemented")]
+        public async Task GetJobDiagramSVGAsyncTest()
+        {
+            Guid id = default!;
+            Client.Option<int> sheet = default!;
+            var response = await _instance.GetJobDiagramSVGAsync(id, sheet);
+            var model = response.Ok();
+            Assert.IsType<string>(model);
+        }
+
+        /// <summary>
         /// Test StreamJob
         /// </summary>
         [Fact (Skip = "not implemented")]

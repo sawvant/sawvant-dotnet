@@ -32,11 +32,11 @@ namespace Sawvant.Model
         /// </summary>
         /// <param name="partId">partId</param>
         /// <param name="sheetId">Which sheet type this part is placed on</param>
-        /// <param name="x">mm from top-left of usable area</param>
-        /// <param name="y">mm from top-left of usable area</param>
-        /// <param name="width">Post-edge-banding dimension</param>
-        /// <param name="height">Post-edge-banding dimension</param>
-        /// <param name="rotated">rotated</param>
+        /// <param name="x">mm from the top-left of the usable area, along the sheet&#39;s length axis. x + width never exceeds the usable length.</param>
+        /// <param name="y">mm from the top-left of the usable area, along the sheet&#39;s width axis. y + height never exceeds the usable width.</param>
+        /// <param name="width">Post-edge-banding dimension along the sheet&#39;s length axis</param>
+        /// <param name="height">Post-edge-banding dimension along the sheet&#39;s width axis</param>
+        /// <param name="rotated">True when the part&#39;s length runs along the sheet&#39;s width axis, so width is the part&#39;s width and height is its length.</param>
         /// <param name="grain">grain</param>
         [JsonConstructor]
         public Placement(string partId, string sheetId, double x, double y, double width, double height, bool rotated, GrainDirection grain)
@@ -74,36 +74,37 @@ namespace Sawvant.Model
         public string SheetId { get; set; }
 
         /// <summary>
-        /// mm from top-left of usable area
+        /// mm from the top-left of the usable area, along the sheet&#39;s length axis. x + width never exceeds the usable length.
         /// </summary>
-        /// <value>mm from top-left of usable area</value>
+        /// <value>mm from the top-left of the usable area, along the sheet&#39;s length axis. x + width never exceeds the usable length.</value>
         [JsonPropertyName("x")]
         public double X { get; set; }
 
         /// <summary>
-        /// mm from top-left of usable area
+        /// mm from the top-left of the usable area, along the sheet&#39;s width axis. y + height never exceeds the usable width.
         /// </summary>
-        /// <value>mm from top-left of usable area</value>
+        /// <value>mm from the top-left of the usable area, along the sheet&#39;s width axis. y + height never exceeds the usable width.</value>
         [JsonPropertyName("y")]
         public double Y { get; set; }
 
         /// <summary>
-        /// Post-edge-banding dimension
+        /// Post-edge-banding dimension along the sheet&#39;s length axis
         /// </summary>
-        /// <value>Post-edge-banding dimension</value>
+        /// <value>Post-edge-banding dimension along the sheet&#39;s length axis</value>
         [JsonPropertyName("width")]
         public double Width { get; set; }
 
         /// <summary>
-        /// Post-edge-banding dimension
+        /// Post-edge-banding dimension along the sheet&#39;s width axis
         /// </summary>
-        /// <value>Post-edge-banding dimension</value>
+        /// <value>Post-edge-banding dimension along the sheet&#39;s width axis</value>
         [JsonPropertyName("height")]
         public double Height { get; set; }
 
         /// <summary>
-        /// Gets or Sets Rotated
+        /// True when the part&#39;s length runs along the sheet&#39;s width axis, so width is the part&#39;s width and height is its length.
         /// </summary>
+        /// <value>True when the part&#39;s length runs along the sheet&#39;s width axis, so width is the part&#39;s width and height is its length.</value>
         [JsonPropertyName("rotated")]
         public bool Rotated { get; set; }
 

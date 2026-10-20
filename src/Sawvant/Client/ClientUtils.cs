@@ -136,6 +136,10 @@ namespace Sawvant.Client
                     : "false";
             if (obj is CutDirection cutDirection)
                 return CutDirectionValueConverter.ToJsonValue(cutDirection);
+            if (obj is DemoErrorError.CodeEnum demoErrorErrorCodeEnum)
+                return DemoErrorError.CodeEnumToJsonValue(demoErrorErrorCodeEnum);
+            if (obj is ErrorCode errorCode)
+                return ErrorCodeValueConverter.ToJsonValue(errorCode);
             if (obj is GrainDirection grainDirection)
                 return GrainDirectionValueConverter.ToJsonValue(grainDirection);
             if (obj is JobResponse.StatusEnum jobResponseStatusEnum)

@@ -48,6 +48,18 @@ namespace Sawvant.Test.Api
         }
 
         /// <summary>
+        /// Test CreateBatchOptimization
+        /// </summary>
+        [Fact (Skip = "not implemented")]
+        public async Task CreateBatchOptimizationAsyncTest()
+        {
+            BatchRequest batchRequest = default!;
+            var response = await _instance.CreateBatchOptimizationAsync(batchRequest);
+            var model = response.Accepted();
+            Assert.IsType<BatchAccepted>(model);
+        }
+
+        /// <summary>
         /// Test CreateOptimization
         /// </summary>
         [Fact (Skip = "not implemented")]

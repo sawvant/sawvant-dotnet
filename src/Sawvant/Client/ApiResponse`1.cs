@@ -231,6 +231,46 @@ namespace Sawvant.Client
     /// An interface for responses of type 
     /// </summary>
     /// <typeparam name="TType"></typeparam>
+    public interface IServiceUnavailable<TType> : IApiResponse
+    {
+        /// <summary>
+        /// Deserializes the response if the response is ServiceUnavailable
+        /// </summary>
+        /// <returns></returns>
+        TType ServiceUnavailable();
+
+        /// <summary>
+        /// Returns true if the response is ServiceUnavailable and the deserialized response is not null
+        /// </summary>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        bool TryServiceUnavailable([NotNullWhen(true)]out TType? result);
+    }
+
+    /// <summary>
+    /// An interface for responses of type 
+    /// </summary>
+    /// <typeparam name="TType"></typeparam>
+    public interface IContentTooLarge<TType> : IApiResponse
+    {
+        /// <summary>
+        /// Deserializes the response if the response is ContentTooLarge
+        /// </summary>
+        /// <returns></returns>
+        TType ContentTooLarge();
+
+        /// <summary>
+        /// Returns true if the response is ContentTooLarge and the deserialized response is not null
+        /// </summary>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        bool TryContentTooLarge([NotNullWhen(true)]out TType? result);
+    }
+
+    /// <summary>
+    /// An interface for responses of type 
+    /// </summary>
+    /// <typeparam name="TType"></typeparam>
     public interface IOk<TType> : IApiResponse
     {
         /// <summary>
@@ -251,26 +291,6 @@ namespace Sawvant.Client
     /// An interface for responses of type 
     /// </summary>
     /// <typeparam name="TType"></typeparam>
-    public interface IAccepted<TType> : IApiResponse
-    {
-        /// <summary>
-        /// Deserializes the response if the response is Accepted
-        /// </summary>
-        /// <returns></returns>
-        TType Accepted();
-
-        /// <summary>
-        /// Returns true if the response is Accepted and the deserialized response is not null
-        /// </summary>
-        /// <param name="result"></param>
-        /// <returns></returns>
-        bool TryAccepted([NotNullWhen(true)]out TType? result);
-    }
-
-    /// <summary>
-    /// An interface for responses of type 
-    /// </summary>
-    /// <typeparam name="TType"></typeparam>
     public interface IUnprocessableContent<TType> : IApiResponse
     {
         /// <summary>
@@ -285,6 +305,46 @@ namespace Sawvant.Client
         /// <param name="result"></param>
         /// <returns></returns>
         bool TryUnprocessableContent([NotNullWhen(true)]out TType? result);
+    }
+
+    /// <summary>
+    /// An interface for responses of type 
+    /// </summary>
+    /// <typeparam name="TType"></typeparam>
+    public interface IInternalServerError<TType> : IApiResponse
+    {
+        /// <summary>
+        /// Deserializes the response if the response is InternalServerError
+        /// </summary>
+        /// <returns></returns>
+        TType InternalServerError();
+
+        /// <summary>
+        /// Returns true if the response is InternalServerError and the deserialized response is not null
+        /// </summary>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        bool TryInternalServerError([NotNullWhen(true)]out TType? result);
+    }
+
+    /// <summary>
+    /// An interface for responses of type 
+    /// </summary>
+    /// <typeparam name="TType"></typeparam>
+    public interface IAccepted<TType> : IApiResponse
+    {
+        /// <summary>
+        /// Deserializes the response if the response is Accepted
+        /// </summary>
+        /// <returns></returns>
+        TType Accepted();
+
+        /// <summary>
+        /// Returns true if the response is Accepted and the deserialized response is not null
+        /// </summary>
+        /// <param name="result"></param>
+        /// <returns></returns>
+        bool TryAccepted([NotNullWhen(true)]out TType? result);
     }
 
     /// <summary>

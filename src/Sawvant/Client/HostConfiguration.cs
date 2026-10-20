@@ -40,12 +40,24 @@ namespace Sawvant.Client
             _jsonOptions.Converters.Add(new DateTimeNullableJsonConverter());
             _jsonOptions.Converters.Add(new DateOnlyJsonConverter());
             _jsonOptions.Converters.Add(new DateOnlyNullableJsonConverter());
+            _jsonOptions.Converters.Add(new ApiErrorJsonConverter());
+            _jsonOptions.Converters.Add(new ApiErrorBodyJsonConverter());
+            _jsonOptions.Converters.Add(new BatchAcceptedJsonConverter());
+            _jsonOptions.Converters.Add(new BatchJobResultJsonConverter());
+            _jsonOptions.Converters.Add(new BatchRequestJsonConverter());
             _jsonOptions.Converters.Add(new CostJsonConverter());
             _jsonOptions.Converters.Add(new CostTariffsJsonConverter());
             _jsonOptions.Converters.Add(new CutDirectionJsonConverter());
             _jsonOptions.Converters.Add(new CutDirectionNullableJsonConverter());
+            _jsonOptions.Converters.Add(new DemoErrorJsonConverter());
+            _jsonOptions.Converters.Add(new DemoErrorErrorJsonConverter());
+            _jsonOptions.Converters.Add(new DemoLayoutJsonConverter());
+            _jsonOptions.Converters.Add(new DemoOptimizeResponseJsonConverter());
             _jsonOptions.Converters.Add(new EdgeCorrectionJsonConverter());
             _jsonOptions.Converters.Add(new ErrorJsonConverter());
+            _jsonOptions.Converters.Add(new ErrorCodeJsonConverter());
+            _jsonOptions.Converters.Add(new ErrorCodeNullableJsonConverter());
+            _jsonOptions.Converters.Add(new FieldErrorJsonConverter());
             _jsonOptions.Converters.Add(new GrainDirectionJsonConverter());
             _jsonOptions.Converters.Add(new GrainDirectionNullableJsonConverter());
             _jsonOptions.Converters.Add(new HealthResponseJsonConverter());
@@ -67,6 +79,8 @@ namespace Sawvant.Client
             JsonSerializerOptionsProvider jsonSerializerOptionsProvider = new(_jsonOptions);
             _services.AddSingleton(jsonSerializerOptionsProvider);
             _services.AddSingleton<IApiFactory, ApiFactory>();
+            _services.AddSingleton<DemoApiEvents>();
+            _services.AddTransient<IDemoApi, DemoApi>();
             _services.AddSingleton<JobsApiEvents>();
             _services.AddTransient<IJobsApi, JobsApi>();
             _services.AddSingleton<OptimizationApiEvents>();
@@ -90,6 +104,7 @@ namespace Sawvant.Client
 
             List<IHttpClientBuilder> builders = new List<IHttpClientBuilder>();
 
+            builders.Add(_services.AddHttpClient<IDemoApi, DemoApi>(client));
             builders.Add(_services.AddHttpClient<IJobsApi, JobsApi>(client));
             builders.Add(_services.AddHttpClient<IOptimizationApi, OptimizationApi>(client));
             builders.Add(_services.AddHttpClient<ISystemApi, SystemApi>(client));

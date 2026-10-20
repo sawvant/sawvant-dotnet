@@ -35,7 +35,7 @@ namespace Sawvant.Model
         /// <param name="wastePercent">wastePercent</param>
         /// <param name="wasteArea">mm²</param>
         /// <param name="sheetsUsed">sheetsUsed</param>
-        /// <param name="unplacedParts">unplacedParts</param>
+        /// <param name="unplacedParts">IDs of parts the solver could not fit on any available sheet. A grain direction that forbids the only orientation that would fit is a common cause, alongside sheet quantity limits. The rest of the plan is still valid and cuttable.</param>
         [JsonConstructor]
         public Summary(int totalSheets, double yieldPercent, double wastePercent, double wasteArea, List<SheetUsage> sheetsUsed, Option<List<string>?> unplacedParts = default)
         {
@@ -89,8 +89,9 @@ namespace Sawvant.Model
         public Option<List<string>?> UnplacedPartsOption { get; private set; }
 
         /// <summary>
-        /// Gets or Sets UnplacedParts
+        /// IDs of parts the solver could not fit on any available sheet. A grain direction that forbids the only orientation that would fit is a common cause, alongside sheet quantity limits. The rest of the plan is still valid and cuttable.
         /// </summary>
+        /// <value>IDs of parts the solver could not fit on any available sheet. A grain direction that forbids the only orientation that would fit is a common cause, alongside sheet quantity limits. The rest of the plan is still valid and cuttable.</value>
         [JsonPropertyName("unplaced_parts")]
         public List<string>? UnplacedParts { get { return this.UnplacedPartsOption; } set { this.UnplacedPartsOption = new(value); } }
 

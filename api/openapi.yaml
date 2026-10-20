@@ -13,6 +13,15 @@ servers:
   url: https://api.sawvant.com
 security:
 - apiKey: []
+tags:
+- description: Submit cutting optimization work.
+  name: Optimization
+- description: "Read job status, results and rendered cutting plans."
+  name: Jobs
+- description: Health and tier configuration. No authentication required.
+  name: System
+- description: "Small optimizations without an API key, rate limited per IP."
+  name: Demo
 paths:
   /health:
     get:
@@ -56,6 +65,66 @@ paths:
       requestBody:
         content:
           application/json:
+            examples:
+              basic:
+                summary: Two part types on one unlimited sheet type
+                value:
+                  parts:
+                  - id: shelf
+                    length: 600
+                    width: 400
+                    quantity: 8
+                    grain: none
+                  - id: bracket
+                    length: 300
+                    width: 200
+                    quantity: 4
+                    grain: none
+                  sheets:
+                  - id: mdf-18
+                    length: 2440
+                    width: 1220
+                    quantity: 0
+                    grain: none
+                  machine:
+                    blade_thickness: 3.2
+                    max_levels: 3
+                    cut_direction: default
+              furniture:
+                summary: Grain-constrained panels with edge banding and trim margins
+                value:
+                  parts:
+                  - id: door-front
+                    length: 700
+                    width: 396
+                    quantity: 6
+                    grain: length
+                    edge_banding:
+                      top: 2
+                      bottom: 2
+                      left: 2
+                      right: 2
+                  - id: side-panel
+                    length: 720
+                    width: 500
+                    quantity: 4
+                    grain: length
+                  sheets:
+                  - id: oak-veneer-18
+                    length: 2800
+                    width: 2070
+                    quantity: 0
+                    grain: length
+                    article_number: OAK-18-2800
+                    trim_margins:
+                      top: 10
+                      bottom: 10
+                      left: 10
+                      right: 10
+                  machine:
+                    blade_thickness: 4.4
+                    max_levels: 3
+                    cut_direction: rip
             schema:
               $ref: '#/components/schemas/OptimizeRequest'
         required: true
@@ -69,10 +138,33 @@ paths:
         "400":
           content:
             application/json:
+              examples:
+                validation:
+                  summary: A part with a zero length
+                  value:
+                    error:
+                      code: VALIDATION_FAILED
+                      message: "parts[0].length: must be greater than zero"
+                      details:
+                      - field: "parts[0].length"
+                        reason: must be greater than zero
+                wrongType:
+                  summary: A string where a number is expected
+                  value:
+                    error:
+                      code: INVALID_JSON
+                      message: "parts.length: must be a number"
+                      details:
+                      - field: parts.length
+                        reason: must be a number
               schema:
-                $ref: '#/components/schemas/Error'
-          description: "Invalid request (malformed JSON, missing fields, validation\
-            \ error)"
+                $ref: '#/components/schemas/ApiError'
+          description: |
+            Invalid request. `error.code` says what is wrong: `INVALID_BODY`,
+            `BODY_TOO_LARGE`, `INVALID_JSON`, `INVALID_STRATEGY`, `PARTS_EMPTY`,
+            `SHEETS_EMPTY`, `TOO_MANY_PARTS`, `TOO_MANY_SHEETS` or
+            `VALIDATION_FAILED`. For `INVALID_JSON` and `VALIDATION_FAILED`,
+            `error.details` names the offending field.
         "401":
           content:
             application/json:
@@ -88,10 +180,31 @@ paths:
         "422":
           content:
             application/json:
+              example:
+                error:
+                  code: INFEASIBLE
+                  message: "1 part does not fit on any sheet: P1"
+                  details:
+                  - field: parts
+                    reason: "part \"P1\" does not fit on any sheet, even rotated (edge\
+                      \ banding and trim margins included)"
               schema:
-                $ref: '#/components/schemas/Error'
-          description: Request is valid but infeasible (e.g. part larger than all
-            sheets)
+                $ref: '#/components/schemas/ApiError'
+          description: |
+            Request is valid but infeasible (`INFEASIBLE`): one or more parts do
+            not fit on any sheet. `error.details` has one entry per part.
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Internal error (`INTERNAL_ERROR`)
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+          description: Rate limiting is temporarily unavailable (`SERVICE_UNAVAILABLE`)
         "429":
           content:
             application/json:
@@ -101,6 +214,265 @@ paths:
       summary: Submit a cutting optimization job
       tags:
       - Optimization
+  /v1/optimize/batch:
+    post:
+      description: |
+        Enqueues an array of optimization requests as individual jobs and returns
+        their IDs immediately. Poll or stream each job separately.
+
+        Maximum 50 fast jobs or 10 thorough jobs per batch. Requires a tier with
+        the `batch` feature.
+      operationId: createBatchOptimization
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRequest'
+        required: true
+      responses:
+        "202":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchAccepted'
+          description: Batch accepted; jobs queued
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Invalid request (malformed JSON, empty batch, batch too large)"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Missing or invalid API key
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Tier does not include batch optimization
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RateLimitError'
+          description: Rate limit exceeded
+      summary: Submit multiple cutting optimization jobs
+      tags:
+      - Optimization
+  /v1/demo/optimize:
+    post:
+      description: |
+        Public endpoint behind the playground on sawvant.com. No API key or
+        account needed. Runs the fast strategy synchronously and returns the
+        result together with an SVG cutting plan per layout, so there is no
+        job to poll.
+
+        Limits: at most 30 part types, a total part quantity of 100, 3 sheet
+        types and a 64 KB request body. `strategy` must be omitted or `fast`;
+        `cost_tariffs` is ignored. Each client IP may make 10 requests per
+        minute and 100 per day. The input is not stored.
+
+        Browsers may only call this endpoint from sawvant.com.
+      operationId: createDemoOptimization
+      requestBody:
+        content:
+          application/json:
+            examples:
+              kitchen:
+                summary: A small cabinet on one sheet type
+                value:
+                  parts:
+                  - id: side
+                    length: 720
+                    width: 560
+                    quantity: 2
+                    grain: length
+                  - id: shelf
+                    length: 564
+                    width: 540
+                    quantity: 3
+                    grain: none
+                  - id: door
+                    length: 716
+                    width: 396
+                    quantity: 2
+                    grain: length
+                  sheets:
+                  - id: oak-18
+                    length: 2800
+                    width: 2070
+                    quantity: 0
+                    grain: length
+                  machine:
+                    blade_thickness: 3.2
+                    max_levels: 3
+                    cut_direction: default
+            schema:
+              $ref: '#/components/schemas/OptimizeRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoOptimizeResponse'
+          description: Optimization result with an SVG per layout
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoError'
+          description: Malformed JSON or a field that fails validation
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoError'
+          description: Request body larger than 64 KB
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoError'
+          description: |
+            Over a demo limit (`DEMO_LIMIT_EXCEEDED`) or infeasible input such as a
+            part larger than every sheet (`INFEASIBLE`)
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoError'
+          description: Too many demo requests from this IP. See `Retry-After`.
+          headers:
+            Retry-After:
+              description: Seconds until the exhausted window resets
+              explode: false
+              schema:
+                type: integer
+              style: simple
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoError'
+          description: Unexpected server error (`INTERNAL_ERROR`)
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoError'
+          description: "Too many demo runs in progress, or the server was too busy\
+            \ to finish the solve in time (`DEMO_BUSY`). Retry after a few seconds."
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying
+              explode: false
+              schema:
+                type: integer
+              style: simple
+      security: []
+      summary: Run a small optimization without an API key
+      tags:
+      - Demo
+  /v1/jobs/{id}/diagram:
+    get:
+      description: |
+        Returns one sheet layout of a completed job as an SVG cutting plan with
+        dimensions and grain direction.
+      operationId: getJobDiagramSVG
+      parameters:
+      - $ref: '#/components/parameters/JobID'
+      - description: Index into the job's `layouts` array
+        explode: true
+        in: query
+        name: sheet
+        required: false
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+          description: SVG cutting plan
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Invalid job ID or sheet index
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Missing or invalid API key
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Job not found
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: "Job is not completed, or has no layouts"
+      summary: Render a cutting plan as SVG
+      tags:
+      - Jobs
+  /v1/jobs/{id}/diagram.pdf:
+    get:
+      description: |
+        Returns every sheet layout of a completed job as a printable PDF
+        cutting plan.
+      operationId: getJobDiagramPDF
+      parameters:
+      - $ref: '#/components/parameters/JobID'
+      responses:
+        "200":
+          content:
+            application/pdf:
+              schema:
+                format: binary
+                type: string
+          description: PDF cutting plan
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Invalid job ID
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Missing or invalid API key
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Job not found
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Job is not completed
+      summary: Render a cutting plan as PDF
+      tags:
+      - Jobs
   /v1/jobs/{id}:
     get:
       description: "Returns the current state of a job including progress, result,\
@@ -259,6 +631,80 @@ components:
           type: string
       required:
       - error
+    ApiError:
+      description: |
+        Structured error. Used by `POST /v1/optimize`; the other endpoints still
+        return `Error` and move to this shape later.
+      example:
+        error:
+          code: INVALID_BODY
+          details:
+          - reason: must be greater than zero
+            field: "parts[2].width"
+          - reason: must be greater than zero
+            field: "parts[2].width"
+          message: message
+      properties:
+        error:
+          $ref: '#/components/schemas/ApiErrorBody'
+      required:
+      - error
+    ApiErrorBody:
+      example:
+        code: INVALID_BODY
+        details:
+        - reason: must be greater than zero
+          field: "parts[2].width"
+        - reason: must be greater than zero
+          field: "parts[2].width"
+        message: message
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          description: Human-readable explanation. Do not parse it; use `code` and
+            `details`.
+          type: string
+        details:
+          items:
+            $ref: '#/components/schemas/FieldError'
+          type: array
+      required:
+      - code
+      - message
+    ErrorCode:
+      description: "Stable, machine-readable error code. New codes may be added."
+      enum:
+      - INVALID_BODY
+      - BODY_TOO_LARGE
+      - INVALID_JSON
+      - INVALID_STRATEGY
+      - PARTS_EMPTY
+      - SHEETS_EMPTY
+      - TOO_MANY_PARTS
+      - TOO_MANY_SHEETS
+      - VALIDATION_FAILED
+      - INFEASIBLE
+      - INTERNAL_ERROR
+      - SERVICE_UNAVAILABLE
+      type: string
+    FieldError:
+      example:
+        reason: must be greater than zero
+        field: "parts[2].width"
+      properties:
+        field:
+          description: |
+            JSON path of the field, e.g. `parts[2].width` or `machine.max_levels`.
+            For `INVALID_JSON` the path has no array index (`parts.width`).
+          example: "parts[2].width"
+          type: string
+        reason:
+          example: must be greater than zero
+          type: string
+      required:
+      - field
+      - reason
     RateLimitError:
       example:
         limit: 0
@@ -286,6 +732,135 @@ components:
       - limit
       - remaining
       - strategy
+    DemoError:
+      example:
+        error:
+          code: DEMO_LIMIT_EXCEEDED
+          message: "too many part types: the demo allows at most 30, got 42"
+      properties:
+        error:
+          $ref: '#/components/schemas/DemoError_error'
+      required:
+      - error
+    DemoOptimizeResponse:
+      example:
+        summary:
+          sheets_used:
+          - article_number: article_number
+            quantity: 2
+            sheet_id: sheet_id
+            yield_percent: 41.45608029883936
+          - article_number: article_number
+            quantity: 2
+            sheet_id: sheet_id
+            yield_percent: 41.45608029883936
+          waste_percent: 9.301444243932576
+          unplaced_parts:
+          - unplaced_parts
+          - unplaced_parts
+          yield_percent: 70.61401241503108
+          total_sheets: 2
+          waste_area: 3.616076749251911
+        metrics:
+          total_rotations: 1
+          total_cuts: 1
+          cut_cycles: 6
+          total_cut_length: 7.386281948385884
+          total_stacks: 1
+        layouts:
+        - quantity: 0
+          sheet_id: sheet_id
+          svg: svg
+          placements:
+          - sheet_id: sheet_id
+            x: 6.027456183070403
+            width: 5.962133916683182
+            "y": 1.4658129805029452
+            rotated: true
+            part_id: part_id
+            grain: none
+            height: 5.637376656633329
+          - sheet_id: sheet_id
+            x: 6.027456183070403
+            width: 5.962133916683182
+            "y": 1.4658129805029452
+            rotated: true
+            part_id: part_id
+            grain: none
+            height: 5.637376656633329
+        - quantity: 0
+          sheet_id: sheet_id
+          svg: svg
+          placements:
+          - sheet_id: sheet_id
+            x: 6.027456183070403
+            width: 5.962133916683182
+            "y": 1.4658129805029452
+            rotated: true
+            part_id: part_id
+            grain: none
+            height: 5.637376656633329
+          - sheet_id: sheet_id
+            x: 6.027456183070403
+            width: 5.962133916683182
+            "y": 1.4658129805029452
+            rotated: true
+            part_id: part_id
+            grain: none
+            height: 5.637376656633329
+      properties:
+        layouts:
+          items:
+            $ref: '#/components/schemas/DemoLayout'
+          type: array
+        summary:
+          $ref: '#/components/schemas/Summary'
+        metrics:
+          $ref: '#/components/schemas/Metrics'
+      required:
+      - layouts
+      - metrics
+      - summary
+    DemoLayout:
+      example:
+        quantity: 0
+        sheet_id: sheet_id
+        svg: svg
+        placements:
+        - sheet_id: sheet_id
+          x: 6.027456183070403
+          width: 5.962133916683182
+          "y": 1.4658129805029452
+          rotated: true
+          part_id: part_id
+          grain: none
+          height: 5.637376656633329
+        - sheet_id: sheet_id
+          x: 6.027456183070403
+          width: 5.962133916683182
+          "y": 1.4658129805029452
+          rotated: true
+          part_id: part_id
+          grain: none
+          height: 5.637376656633329
+      properties:
+        sheet_id:
+          type: string
+        quantity:
+          description: Number of identical sheets using this layout pattern
+          type: integer
+        placements:
+          items:
+            $ref: '#/components/schemas/Placement'
+          type: array
+        svg:
+          description: Cutting plan of this layout as a standalone SVG document
+          type: string
+      required:
+      - placements
+      - quantity
+      - sheet_id
+      - svg
     OptimizeRequest:
       example:
         cost_tariffs:
@@ -552,6 +1127,14 @@ components:
       - cut_direction
       - max_levels
     GrainDirection:
+      description: "Which axis the grain runs along. On a part it is relative to the\
+        \ part's own length and width; on a sheet it is relative to the sheet's. A\
+        \ part may only be placed so that its grain ends up parallel to the sheet's.\
+        \ A sheet that omits the field is treated as having its grain along its length,\
+        \ so `length` and `width` on a part constrain rotation even when the sheet\
+        \ says nothing. Use `none` on the part for material without a grain, or `free_same`\
+        \ to let the solver choose one orientation and apply it to every instance\
+        \ of that part."
       enum:
       - none
       - length
@@ -637,6 +1220,697 @@ components:
         cost_per_cycle:
           format: double
           type: number
+    BatchRequest:
+      example:
+        jobs:
+        - cost_tariffs:
+            cost_per_rotation: 5.025004791520295
+            setup_cost: 1.1730742509559433
+            cost_per_meter: 4.965218492984954
+            cost_per_cycle: 9.369310271410669
+            cost_per_stack: 9.965781217890562
+          sheets:
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          machine:
+            max_levels: 2
+            blade_thickness: 1.4894159098541704
+            cut_direction: default
+            max_stack_height: 7.457744773683766
+          parts:
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          strategy: fast
+        - cost_tariffs:
+            cost_per_rotation: 5.025004791520295
+            setup_cost: 1.1730742509559433
+            cost_per_meter: 4.965218492984954
+            cost_per_cycle: 9.369310271410669
+            cost_per_stack: 9.965781217890562
+          sheets:
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          machine:
+            max_levels: 2
+            blade_thickness: 1.4894159098541704
+            cut_direction: default
+            max_stack_height: 7.457744773683766
+          parts:
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          strategy: fast
+        - cost_tariffs:
+            cost_per_rotation: 5.025004791520295
+            setup_cost: 1.1730742509559433
+            cost_per_meter: 4.965218492984954
+            cost_per_cycle: 9.369310271410669
+            cost_per_stack: 9.965781217890562
+          sheets:
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          machine:
+            max_levels: 2
+            blade_thickness: 1.4894159098541704
+            cut_direction: default
+            max_stack_height: 7.457744773683766
+          parts:
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          strategy: fast
+        - cost_tariffs:
+            cost_per_rotation: 5.025004791520295
+            setup_cost: 1.1730742509559433
+            cost_per_meter: 4.965218492984954
+            cost_per_cycle: 9.369310271410669
+            cost_per_stack: 9.965781217890562
+          sheets:
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          machine:
+            max_levels: 2
+            blade_thickness: 1.4894159098541704
+            cut_direction: default
+            max_stack_height: 7.457744773683766
+          parts:
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          strategy: fast
+        - cost_tariffs:
+            cost_per_rotation: 5.025004791520295
+            setup_cost: 1.1730742509559433
+            cost_per_meter: 4.965218492984954
+            cost_per_cycle: 9.369310271410669
+            cost_per_stack: 9.965781217890562
+          sheets:
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          - article_number: article_number
+            quantity: 0
+            trim_margins:
+              top: 4.145608029883936
+              left: 1.2315135367772556
+              bottom: 7.386281948385884
+              right: 1.0246457001441578
+            is_offcut: false
+            length: 9.301444243932576
+            width: 3.616076749251911
+            id: id
+            grain: null
+          machine:
+            max_levels: 2
+            blade_thickness: 1.4894159098541704
+            cut_direction: default
+            max_stack_height: 7.457744773683766
+          parts:
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          - quantity: 1
+            edge_banding:
+              top: 5.962133916683182
+              left: 2.3021358869347655
+              bottom: 5.637376656633329
+              right: 7.061401241503109
+            length: 0.8008281904610115
+            width: 6.027456183070403
+            id: id
+            grain: none
+          strategy: fast
+      properties:
+        jobs:
+          description: |
+            Individual optimization requests. At most 50 with strategy `fast`
+            or 10 with strategy `thorough`.
+          items:
+            $ref: '#/components/schemas/OptimizeRequest'
+          maxItems: 50
+          minItems: 1
+          type: array
+      required:
+      - jobs
+    BatchAccepted:
+      example:
+        total: 0
+        batch_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        job_ids:
+        - 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        - 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        created: 6
+        results:
+        - job_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          index: 1
+          error: error
+        - job_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          index: 1
+          error: error
+      properties:
+        batch_id:
+          format: uuid
+          type: string
+        job_ids:
+          items:
+            format: uuid
+            type: string
+          type: array
+        total:
+          description: Number of jobs in the request
+          type: integer
+        created:
+          description: Number of jobs successfully enqueued
+          type: integer
+        results:
+          description: Present only when one or more jobs failed to enqueue
+          items:
+            $ref: '#/components/schemas/BatchJobResult'
+          type: array
+      required:
+      - batch_id
+      - created
+      - job_ids
+      - total
+    BatchJobResult:
+      example:
+        job_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        index: 1
+        error: error
+      properties:
+        index:
+          description: Position of this job in the request array
+          type: integer
+        job_id:
+          format: uuid
+          type: string
+        error:
+          type: string
+      required:
+      - index
     OptimizeAccepted:
       example:
         job_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
@@ -667,72 +1941,72 @@ components:
           summary:
             sheets_used:
             - article_number: article_number
-              quantity: 4
+              quantity: 2
               sheet_id: sheet_id
-              yield_percent: 73.86281948385884
+              yield_percent: 41.45608029883936
             - article_number: article_number
-              quantity: 4
+              quantity: 2
               sheet_id: sheet_id
-              yield_percent: 73.86281948385884
-            waste_percent: 3.616076749251911
+              yield_percent: 41.45608029883936
+            waste_percent: 9.301444243932576
             unplaced_parts:
             - unplaced_parts
             - unplaced_parts
-            yield_percent: 93.01444243932576
-            total_sheets: 7
-            waste_area: 2.027123023002322
+            yield_percent: 70.61401241503108
+            total_sheets: 2
+            waste_area: 3.616076749251911
           cost:
-            cycle_cost: 9.369310271410669
-            total_cost: 6.683562403749608
-            setup_cost: 1.1730742509559433
-            rotation_cost: 9.965781217890562
-            cutting_cost: 4.965218492984954
-            stacking_cost: 5.025004791520295
+            cycle_cost: 7.061401241503109
+            total_cost: 9.301444243932576
+            setup_cost: 1.4658129805029452
+            rotation_cost: 2.3021358869347655
+            cutting_cost: 5.962133916683182
+            stacking_cost: 5.637376656633329
           metrics:
             total_rotations: 1
             total_cuts: 1
-            cut_cycles: 7
-            total_cut_length: 1.2315135367772556
-            total_stacks: 6
+            cut_cycles: 6
+            total_cut_length: 7.386281948385884
+            total_stacks: 1
           layouts:
           - quantity: 6
             sheet_id: sheet_id
             placements:
             - sheet_id: sheet_id
-              x: 1.4658129805029452
-              width: 5.637376656633329
-              "y": 5.962133916683182
+              x: 6.027456183070403
+              width: 5.962133916683182
+              "y": 1.4658129805029452
               rotated: true
               part_id: part_id
               grain: none
-              height: 2.3021358869347655
+              height: 5.637376656633329
             - sheet_id: sheet_id
-              x: 1.4658129805029452
-              width: 5.637376656633329
-              "y": 5.962133916683182
+              x: 6.027456183070403
+              width: 5.962133916683182
+              "y": 1.4658129805029452
               rotated: true
               part_id: part_id
               grain: none
-              height: 2.3021358869347655
+              height: 5.637376656633329
           - quantity: 6
             sheet_id: sheet_id
             placements:
             - sheet_id: sheet_id
-              x: 1.4658129805029452
-              width: 5.637376656633329
-              "y": 5.962133916683182
+              x: 6.027456183070403
+              width: 5.962133916683182
+              "y": 1.4658129805029452
               rotated: true
               part_id: part_id
               grain: none
-              height: 2.3021358869347655
+              height: 5.637376656633329
             - sheet_id: sheet_id
-              x: 1.4658129805029452
-              width: 5.637376656633329
-              "y": 5.962133916683182
+              x: 6.027456183070403
+              width: 5.962133916683182
+              "y": 1.4658129805029452
               rotated: true
               part_id: part_id
               grain: none
-              height: 2.3021358869347655
+              height: 5.637376656633329
         completed_at: 2000-01-23T04:56:07.000+00:00
         job_id: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
         warnings:
@@ -786,72 +2060,72 @@ components:
         summary:
           sheets_used:
           - article_number: article_number
-            quantity: 4
+            quantity: 2
             sheet_id: sheet_id
-            yield_percent: 73.86281948385884
+            yield_percent: 41.45608029883936
           - article_number: article_number
-            quantity: 4
+            quantity: 2
             sheet_id: sheet_id
-            yield_percent: 73.86281948385884
-          waste_percent: 3.616076749251911
+            yield_percent: 41.45608029883936
+          waste_percent: 9.301444243932576
           unplaced_parts:
           - unplaced_parts
           - unplaced_parts
-          yield_percent: 93.01444243932576
-          total_sheets: 7
-          waste_area: 2.027123023002322
+          yield_percent: 70.61401241503108
+          total_sheets: 2
+          waste_area: 3.616076749251911
         cost:
-          cycle_cost: 9.369310271410669
-          total_cost: 6.683562403749608
-          setup_cost: 1.1730742509559433
-          rotation_cost: 9.965781217890562
-          cutting_cost: 4.965218492984954
-          stacking_cost: 5.025004791520295
+          cycle_cost: 7.061401241503109
+          total_cost: 9.301444243932576
+          setup_cost: 1.4658129805029452
+          rotation_cost: 2.3021358869347655
+          cutting_cost: 5.962133916683182
+          stacking_cost: 5.637376656633329
         metrics:
           total_rotations: 1
           total_cuts: 1
-          cut_cycles: 7
-          total_cut_length: 1.2315135367772556
-          total_stacks: 6
+          cut_cycles: 6
+          total_cut_length: 7.386281948385884
+          total_stacks: 1
         layouts:
         - quantity: 6
           sheet_id: sheet_id
           placements:
           - sheet_id: sheet_id
-            x: 1.4658129805029452
-            width: 5.637376656633329
-            "y": 5.962133916683182
+            x: 6.027456183070403
+            width: 5.962133916683182
+            "y": 1.4658129805029452
             rotated: true
             part_id: part_id
             grain: none
-            height: 2.3021358869347655
+            height: 5.637376656633329
           - sheet_id: sheet_id
-            x: 1.4658129805029452
-            width: 5.637376656633329
-            "y": 5.962133916683182
+            x: 6.027456183070403
+            width: 5.962133916683182
+            "y": 1.4658129805029452
             rotated: true
             part_id: part_id
             grain: none
-            height: 2.3021358869347655
+            height: 5.637376656633329
         - quantity: 6
           sheet_id: sheet_id
           placements:
           - sheet_id: sheet_id
-            x: 1.4658129805029452
-            width: 5.637376656633329
-            "y": 5.962133916683182
+            x: 6.027456183070403
+            width: 5.962133916683182
+            "y": 1.4658129805029452
             rotated: true
             part_id: part_id
             grain: none
-            height: 2.3021358869347655
+            height: 5.637376656633329
           - sheet_id: sheet_id
-            x: 1.4658129805029452
-            width: 5.637376656633329
-            "y": 5.962133916683182
+            x: 6.027456183070403
+            width: 5.962133916683182
+            "y": 1.4658129805029452
             rotated: true
             part_id: part_id
             grain: none
-            height: 2.3021358869347655
+            height: 5.637376656633329
       properties:
         layouts:
           items:
@@ -872,21 +2146,21 @@ components:
         sheet_id: sheet_id
         placements:
         - sheet_id: sheet_id
-          x: 1.4658129805029452
-          width: 5.637376656633329
-          "y": 5.962133916683182
+          x: 6.027456183070403
+          width: 5.962133916683182
+          "y": 1.4658129805029452
           rotated: true
           part_id: part_id
           grain: none
-          height: 2.3021358869347655
+          height: 5.637376656633329
         - sheet_id: sheet_id
-          x: 1.4658129805029452
-          width: 5.637376656633329
-          "y": 5.962133916683182
+          x: 6.027456183070403
+          width: 5.962133916683182
+          "y": 1.4658129805029452
           rotated: true
           part_id: part_id
           grain: none
-          height: 2.3021358869347655
+          height: 5.637376656633329
       properties:
         sheet_id:
           type: string
@@ -904,13 +2178,13 @@ components:
     Placement:
       example:
         sheet_id: sheet_id
-        x: 1.4658129805029452
-        width: 5.637376656633329
-        "y": 5.962133916683182
+        x: 6.027456183070403
+        width: 5.962133916683182
+        "y": 1.4658129805029452
         rotated: true
         part_id: part_id
         grain: none
-        height: 2.3021358869347655
+        height: 5.637376656633329
       properties:
         part_id:
           type: string
@@ -918,22 +2192,26 @@ components:
           description: Which sheet type this part is placed on
           type: string
         x:
-          description: mm from top-left of usable area
+          description: "mm from the top-left of the usable area, along the sheet's\
+            \ length axis. x + width never exceeds the usable length."
           format: double
           type: number
         "y":
-          description: mm from top-left of usable area
+          description: "mm from the top-left of the usable area, along the sheet's\
+            \ width axis. y + height never exceeds the usable width."
           format: double
           type: number
         width:
-          description: Post-edge-banding dimension
+          description: Post-edge-banding dimension along the sheet's length axis
           format: double
           type: number
         height:
-          description: Post-edge-banding dimension
+          description: Post-edge-banding dimension along the sheet's width axis
           format: double
           type: number
         rotated:
+          description: "True when the part's length runs along the sheet's width axis,\
+            \ so width is the part's width and height is its length."
           type: boolean
         grain:
           $ref: '#/components/schemas/GrainDirection'
@@ -950,20 +2228,20 @@ components:
       example:
         sheets_used:
         - article_number: article_number
-          quantity: 4
+          quantity: 2
           sheet_id: sheet_id
-          yield_percent: 73.86281948385884
+          yield_percent: 41.45608029883936
         - article_number: article_number
-          quantity: 4
+          quantity: 2
           sheet_id: sheet_id
-          yield_percent: 73.86281948385884
-        waste_percent: 3.616076749251911
+          yield_percent: 41.45608029883936
+        waste_percent: 9.301444243932576
         unplaced_parts:
         - unplaced_parts
         - unplaced_parts
-        yield_percent: 93.01444243932576
-        total_sheets: 7
-        waste_area: 2.027123023002322
+        yield_percent: 70.61401241503108
+        total_sheets: 2
+        waste_area: 3.616076749251911
       properties:
         total_sheets:
           type: integer
@@ -980,6 +2258,10 @@ components:
           format: double
           type: number
         unplaced_parts:
+          description: "IDs of parts the solver could not fit on any available sheet.\
+            \ A grain direction that forbids the only orientation that would fit is\
+            \ a common cause, alongside sheet quantity limits. The rest of the plan\
+            \ is still valid and cuttable."
           items:
             type: string
           type: array
@@ -996,9 +2278,9 @@ components:
     SheetUsage:
       example:
         article_number: article_number
-        quantity: 4
+        quantity: 2
         sheet_id: sheet_id
-        yield_percent: 73.86281948385884
+        yield_percent: 41.45608029883936
       properties:
         sheet_id:
           type: string
@@ -1022,9 +2304,9 @@ components:
       example:
         total_rotations: 1
         total_cuts: 1
-        cut_cycles: 7
-        total_cut_length: 1.2315135367772556
-        total_stacks: 6
+        cut_cycles: 6
+        total_cut_length: 7.386281948385884
+        total_stacks: 1
       properties:
         total_cut_length:
           description: Total cut length in mm
@@ -1046,12 +2328,12 @@ components:
       - total_stacks
     Cost:
       example:
-        cycle_cost: 9.369310271410669
-        total_cost: 6.683562403749608
-        setup_cost: 1.1730742509559433
-        rotation_cost: 9.965781217890562
-        cutting_cost: 4.965218492984954
-        stacking_cost: 5.025004791520295
+        cycle_cost: 7.061401241503109
+        total_cost: 9.301444243932576
+        setup_cost: 1.4658129805029452
+        rotation_cost: 2.3021358869347655
+        cutting_cost: 5.962133916683182
+        stacking_cost: 5.637376656633329
       properties:
         setup_cost:
           format: double
@@ -1078,6 +2360,38 @@ components:
       - setup_cost
       - stacking_cost
       - total_cost
+    DemoError_error:
+      example:
+        code: DEMO_LIMIT_EXCEEDED
+        message: "too many part types: the demo allows at most 30, got 42"
+      properties:
+        code:
+          enum:
+          - INVALID_JSON
+          - VALIDATION_ERROR
+          - BODY_TOO_LARGE
+          - DEMO_LIMIT_EXCEEDED
+          - INFEASIBLE
+          - RATE_LIMITED
+          - DEMO_BUSY
+          - INTERNAL_ERROR
+          example: DEMO_LIMIT_EXCEEDED
+          type: string
+          x-enum-varnames:
+          - DemoCodeInvalidJSON
+          - DemoCodeValidation
+          - DemoCodeBodyTooLarge
+          - DemoCodeLimitExceeded
+          - DemoCodeInfeasible
+          - DemoCodeRateLimited
+          - DemoCodeBusy
+          - DemoCodeInternal
+        message:
+          example: "too many part types: the demo allows at most 30, got 42"
+          type: string
+      required:
+      - code
+      - message
   securitySchemes:
     apiKey:
       description: API key with `sk_` prefix

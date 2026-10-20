@@ -60,9 +60,9 @@ namespace YourProject
         public static async Task Main(string[] args)
         {
             var host = CreateHostBuilder(args).Build();
-            var api = host.Services.GetRequiredService<IJobsApi>();
-            GetJobApiResponse apiResponse = await api.GetJobAsync("todo");
-            JobResponse model = apiResponse.Ok();
+            var api = host.Services.GetRequiredService<IDemoApi>();
+            CreateDemoOptimizationApiResponse apiResponse = await api.CreateDemoOptimizationAsync("todo");
+            DemoOptimizeResponse model = apiResponse.Ok();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) => Host.CreateDefaultBuilder(args)
@@ -172,7 +172,7 @@ Authentication schemes defined for the API:
 - packageCompany: OpenAPI
 - packageCopyright: No Copyright
 - packageDescription: A library generated from a OpenAPI doc
-- packageGuid: {2BBE419B-1212-42AC-A6A5-0BFB8F2CD5DF}
+- packageGuid: {CC6478E7-6C17-440C-9CDA-FF5168FA1346}
 - packageName: Sawvant
 - packageTags: 
 - packageTitle: OpenAPI Library

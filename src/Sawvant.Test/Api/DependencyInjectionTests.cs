@@ -67,6 +67,9 @@ namespace Sawvant.Test.Api
         [Fact]
         public void ConfigureApiWithAClientTest()
         {
+            var demoApi = _hostUsingConfigureWithAClient.Services.GetRequiredService<IDemoApi>();
+            Assert.True(demoApi.HttpClient.BaseAddress != null);
+
             var jobsApi = _hostUsingConfigureWithAClient.Services.GetRequiredService<IJobsApi>();
             Assert.True(jobsApi.HttpClient.BaseAddress != null);
 
@@ -83,6 +86,9 @@ namespace Sawvant.Test.Api
         [Fact]
         public void ConfigureApiWithoutAClientTest()
         {
+            var demoApi = _hostUsingConfigureWithoutAClient.Services.GetRequiredService<IDemoApi>();
+            Assert.True(demoApi.HttpClient.BaseAddress != null);
+
             var jobsApi = _hostUsingConfigureWithoutAClient.Services.GetRequiredService<IJobsApi>();
             Assert.True(jobsApi.HttpClient.BaseAddress != null);
 
@@ -99,6 +105,9 @@ namespace Sawvant.Test.Api
         [Fact]
         public void AddApiWithAClientTest()
         {
+            var demoApi = _hostUsingAddWithAClient.Services.GetRequiredService<IDemoApi>();
+            Assert.True(demoApi.HttpClient.BaseAddress != null);
+            
             var jobsApi = _hostUsingAddWithAClient.Services.GetRequiredService<IJobsApi>();
             Assert.True(jobsApi.HttpClient.BaseAddress != null);
             
@@ -115,6 +124,9 @@ namespace Sawvant.Test.Api
         [Fact]
         public void AddApiWithoutAClientTest()
         {
+            var demoApi = _hostUsingAddWithoutAClient.Services.GetRequiredService<IDemoApi>();
+            Assert.True(demoApi.HttpClient.BaseAddress != null);
+
             var jobsApi = _hostUsingAddWithoutAClient.Services.GetRequiredService<IJobsApi>();
             Assert.True(jobsApi.HttpClient.BaseAddress != null);
 
