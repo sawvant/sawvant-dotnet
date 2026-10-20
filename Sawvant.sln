@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 VisualStudioVersion = 12.0.0.0
 MinimumVisualStudioVersion = 10.0.0.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sawvant", "src\Sawvant\Sawvant.csproj", "{CC6478E7-6C17-440C-9CDA-FF5168FA1346}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sawvant", "src\Sawvant\Sawvant.csproj", "{FF822A37-5193-4122-8DBB-1BCAE2C8DDE2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sawvant.Test", "src\Sawvant.Test\Sawvant.Test.csproj", "{19F1DEBC-DE5E-4517-8062-F000CD499087}"
 EndProject
@@ -12,10 +12,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{CC6478E7-6C17-440C-9CDA-FF5168FA1346}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CC6478E7-6C17-440C-9CDA-FF5168FA1346}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CC6478E7-6C17-440C-9CDA-FF5168FA1346}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CC6478E7-6C17-440C-9CDA-FF5168FA1346}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FF822A37-5193-4122-8DBB-1BCAE2C8DDE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF822A37-5193-4122-8DBB-1BCAE2C8DDE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF822A37-5193-4122-8DBB-1BCAE2C8DDE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF822A37-5193-4122-8DBB-1BCAE2C8DDE2}.Release|Any CPU.Build.0 = Release|Any CPU
 		{19F1DEBC-DE5E-4517-8062-F000CD499087}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{19F1DEBC-DE5E-4517-8062-F000CD499087}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{19F1DEBC-DE5E-4517-8062-F000CD499087}.Release|Any CPU.ActiveCfg = Release|Any CPU

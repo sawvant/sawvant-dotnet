@@ -6,17 +6,19 @@
     <AssemblyName>Sawvant</AssemblyName>
     <PackageId>Sawvant</PackageId>
     <OutputType>Library</OutputType>
-    <Authors>OpenAPI</Authors>
-    <Company>OpenAPI</Company>
-    <AssemblyTitle>OpenAPI Library</AssemblyTitle>
-    <Description>A library generated from a OpenAPI doc</Description>
-    <Copyright>No Copyright</Copyright>
+    <Authors>Sawvant</Authors>
+    <Company>Sawvant</Company>
+    <AssemblyTitle>Sawvant SDK</AssemblyTitle>
+    <Description>.NET SDK for the Sawvant cutting optimization API</Description>
+    <Copyright>Copyright Sawvant</Copyright>
     <RootNamespace>Sawvant</RootNamespace>
     <Version>0.1.0</Version>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\Sawvant.xml</DocumentationFile>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/sawvant/sawvant-dotnet.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReleaseNotes>Minor update</PackageReleaseNotes>
+    <PackageTags>sawvant;cutting;optimization;sdk</PackageTags>
     <Nullable>enable</Nullable>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>

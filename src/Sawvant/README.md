@@ -11,13 +11,14 @@ $properties = @(
     'nullableReferenceTypes=true',
     'hideGenerationTimestamp=true',
     'packageVersion=0.1.0',
-    'packageAuthors=OpenAPI',
-    'packageCompany=OpenAPI',
-    'packageCopyright=No Copyright',
-    'packageDescription=A library generated from a OpenAPI doc',
+    'packageAuthors=Sawvant',
+    'packageCompany=Sawvant',
+    'packageCopyright=Copyright Sawvant',
+    'packageDescription=.NET SDK for the Sawvant cutting optimization API',
+    'licenseId=Apache-2.0',
     'packageName=Sawvant',
-    'packageTags=',
-    'packageTitle=OpenAPI Library'
+    'packageTags=sawvant;cutting;optimization;sdk',
+    'packageTitle=Sawvant SDK'
 ) -join ","
 
 $global = @(
@@ -159,7 +160,7 @@ Authentication schemes defined for the API:
 - hideGenerationTimestamp: true
 - interfacePrefix: I
 - library: generichost
-- licenseId: 
+- licenseId: Apache-2.0
 - modelPropertyNaming: 
 - netCoreProjectFile: false
 - nonPublicApi: false
@@ -168,14 +169,14 @@ Authentication schemes defined for the API:
 - optionalEmitDefaultValues: false
 - optionalMethodArgument: true
 - optionalProjectFile: 
-- packageAuthors: OpenAPI
-- packageCompany: OpenAPI
-- packageCopyright: No Copyright
-- packageDescription: A library generated from a OpenAPI doc
-- packageGuid: {CC6478E7-6C17-440C-9CDA-FF5168FA1346}
+- packageAuthors: Sawvant
+- packageCompany: Sawvant
+- packageCopyright: Copyright Sawvant
+- packageDescription: .NET SDK for the Sawvant cutting optimization API
+- packageGuid: {FF822A37-5193-4122-8DBB-1BCAE2C8DDE2}
 - packageName: Sawvant
-- packageTags: 
-- packageTitle: OpenAPI Library
+- packageTags: sawvant;cutting;optimization;sdk
+- packageTitle: Sawvant SDK
 - packageVersion: 0.1.0
 - releaseNote: Minor update
 - returnICollection: false
