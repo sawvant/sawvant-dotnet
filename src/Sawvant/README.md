@@ -173,7 +173,7 @@ Authentication schemes defined for the API:
 - packageCompany: Sawvant
 - packageCopyright: Copyright Sawvant
 - packageDescription: .NET SDK for the Sawvant cutting optimization API
-- packageGuid: {FF822A37-5193-4122-8DBB-1BCAE2C8DDE2}
+- packageGuid: {7F0E1381-B90A-43A1-9668-8A493D1C2B9F}
 - packageName: Sawvant
 - packageTags: sawvant;cutting;optimization;sdk
 - packageTitle: Sawvant SDK
